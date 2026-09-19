@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>發燒的第七天 · 互動教學</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap">
+<style>
+:root{
+  --void:#0a0d14; --ink:#10141d; --stone:#232c3a; --stone2:#313d4e;
+  --brass:#c9a227; --brass-lt:#eed58a; --brass-dk:#7d6318;
+  --patina:#4f9b8e; --gas:#f3c470; --blood:#b5443f;
+  --text:#ebe6da; --dim:#a6a294;
+  --good:#6cc39a; --warn:#e0b45f; --bad:#e0705f; --mid:#8ab8de;
+  --ui:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --disp:"Noto Serif TC",Georgia,serif; --lat:"Cinzel",Georgia,serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--void);color:var(--text);font-family:var(--ui);overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input{font:inherit}
+:focus-visible{outline:2px solid var(--brass-lt);outline-offset:3px}
+.hide{display:none!important}
+
+.orn{background:linear-gradient(180deg,rgba(35,44,58,.95),rgba(14,18,26,.97));
+  border:1px solid rgba(201,162,39,.42);box-shadow:inset 0 1px 0 rgba(238,213,138,.16),0 10px 34px rgba(0,0,0,.55)}
+.btn{padding:10px 20px;border-radius:24px;border:1px solid var(--brass);color:var(--brass-lt);
+  background:linear-gradient(180deg,rgba(43,54,70,.92),rgba(16,21,30,.95));font-size:14.5px;white-space:nowrap}
+.btn:hover:not([disabled]){background:rgba(201,162,39,.2)}
+.btn[disabled]{opacity:.35;cursor:not-allowed}
+.btn.solid{background:linear-gradient(180deg,#c9a227,#8a6d1f);color:#141209;font-weight:700;border-color:var(--brass-lt)}
+.btn.lg{padding:14px 30px;font-size:17px}
+
+/* ---------- boot / role ---------- */
+#boot{position:fixed;inset:0;display:grid;place-items:center;padding:24px;
+  background:radial-gradient(120% 90% at 50% 0%,#161d2a,var(--void) 70%);overflow:auto}
+.boot-in{width:min(100%,520px);text-align:center;padding:34px 28px}
+.b-sup{font-family:var(--lat);font-size:11px;letter-spacing:.3em;color:var(--brass);margin-bottom:14px}
+.b-main{font-family:var(--disp);font-size:clamp(30px,7vw,46px);letter-spacing:.06em;line-height:1.2}
+.b-sub{margin-top:10px;color:var(--dim);font-size:14px}
+.b-row{display:flex;gap:10px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+.b-note{margin-top:22px;font-size:11.5px;color:#6f6c63;font-family:var(--mono);line-height:1.8}
+.pinbox{display:flex;gap:8px;justify-content:center;margin-top:18px}
+.pinbox input{width:100%;max-width:240px;text-align:center;font-family:var(--mono);font-size:26px;letter-spacing:.3em;
+  padding:12px;background:#0b0f16;border:1px solid rgba(201,162,39,.45);color:var(--brass-lt);border-radius:8px}
+.err{color:var(--bad);font-size:13.5px;margin-top:12px;min-height:19px}
+
+/* ---------- host ---------- */
+#host{position:fixed;inset:0;display:none;grid-template-rows:auto 1fr auto}
+#host.on{display:grid}
+.hbar{display:flex;align-items:center;gap:14px;padding:9px 16px;background:rgba(10,14,20,.9);
+  border-bottom:1px solid rgba(201,162,39,.28);flex-wrap:wrap}
+.pin{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:.22em;color:var(--brass-lt)}
+.pin small{display:block;font-size:9.5px;letter-spacing:.2em;color:var(--dim);font-weight:400}
+.chip{font-family:var(--mono);font-size:12px;padding:5px 11px;border:1px solid rgba(201,162,39,.35);
+  color:var(--brass-lt);background:rgba(10,14,20,.7);border-radius:4px;white-space:nowrap}
+.chip b{color:var(--text)}
+.grow{flex:1}
+.stage-main{position:relative;background:#05070c;display:grid;place-items:center;overflow:hidden}
+.stage-main img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.hctl{display:flex;align-items:center;gap:9px;padding:10px 16px;background:rgba(10,14,20,.92);
+  border-top:1px solid rgba(201,162,39,.28);flex-wrap:wrap}
+.slidelabel{font-size:13px;color:var(--dim);max-width:34ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* join overlay */
+#joinOv{position:absolute;inset:0;display:grid;place-items:center;background:rgba(5,7,12,.93);padding:3%}
+.join-in{display:flex;gap:44px;align-items:center;flex-wrap:wrap;justify-content:center}
+.qrwrap{background:#fff;padding:16px;border-radius:10px;line-height:0}
+.qrwrap canvas,.qrwrap img{width:min(42vh,330px);height:auto;image-rendering:pixelated}
+.join-txt{max-width:440px}
+.join-txt h2{font-family:var(--disp);font-size:clamp(22px,3.4vw,32px);margin-bottom:14px;color:var(--brass-lt)}
+.join-url{font-family:var(--mono);font-size:14px;color:var(--text);word-break:break-all;
+  background:#0b0f16;border:1px solid rgba(201,162,39,.35);padding:10px 13px;border-radius:6px;margin:12px 0}
+.bigpin{font-family:var(--mono);font-size:clamp(40px,8vw,70px);font-weight:600;letter-spacing:.2em;color:var(--brass-lt);line-height:1.1}
+.roster{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px;max-height:26vh;overflow:auto}
+.rchip{font-size:13.5px;padding:5px 12px;border-radius:16px;background:rgba(79,155,142,.18);
+  border:1px solid rgba(79,155,142,.45);color:#bfe6de;animation:pop .35s ease}
+@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* timer + answered */
+#askOv{position:absolute;left:0;right:0;bottom:0;padding:14px 18px;display:flex;align-items:center;gap:16px;
+  background:linear-gradient(180deg,rgba(5,7,12,0),rgba(5,7,12,.92) 40%)}
+.timer{font-family:var(--mono);font-size:44px;font-weight:600;color:var(--brass-lt);min-width:2.4ch;text-align:center;
+  font-variant-numeric:tabular-nums}
+.timer.low{color:var(--bad);animation:pulse .8s infinite}
+@keyframes pulse{50%{opacity:.45}}
+.tbar{flex:1;height:12px;background:#0a0e15;border:1px solid rgba(201,162,39,.35);overflow:hidden;border-radius:6px}
+.tbar i{display:block;height:100%;background:linear-gradient(90deg,var(--patina),var(--brass));transition:width .95s linear}
+.tbar.low i{background:linear-gradient(90deg,#7b3b38,var(--blood))}
+.answered{font-family:var(--mono);font-size:26px;color:var(--text);white-space:nowrap}
+.answered small{font-size:12px;color:var(--dim)}
+
+/* distribution + leaderboard */
+#revealOv{position:absolute;top:0;right:0;bottom:0;width:min(40%,540px);
+  display:flex;flex-direction:column;overflow:auto;
+  background:linear-gradient(90deg,rgba(5,7,12,.72),rgba(5,7,12,.96) 12%);
+  border-left:1px solid rgba(201,162,39,.35);
+  box-shadow:-18px 0 50px rgba(0,0,0,.6);
+  transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+#revealOv.collapsed{transform:translateX(101%)}
+@media (max-width:900px){#revealOv{width:100%;background:rgba(5,7,12,.96)}}
+.rev-pane{padding:22px 24px}
+.rev-pane + .rev-pane{border-top:1px solid rgba(201,162,39,.22)}
+.rev-pane h3{font-family:var(--disp);font-size:18px;color:var(--brass-lt);margin-bottom:16px;
+  padding-bottom:9px;border-bottom:1px solid rgba(201,162,39,.3);line-height:1.45;text-wrap:balance}
+.dist{display:grid;gap:9px}
+.drow{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center;font-size:14px}
+.dmark{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:14px}
+.v-best{background:var(--good);color:#0d1a14}.v-ok{background:var(--warn);color:#1a1608}
+.v-partial{background:var(--mid);color:#0e1822}.v-bad{background:var(--bad);color:#1a0d0b}
+.dbar{height:26px;background:#0a0e15;border:1px solid rgba(201,162,39,.22);border-radius:4px;position:relative;overflow:hidden}
+.dbar i{display:block;height:100%;background:rgba(201,162,39,.4);transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.dbar span{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:13px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 18px)}
+.dn{font-family:var(--mono);font-size:14px;color:var(--brass-lt);min-width:3ch;text-align:right}
+.lb{display:grid;gap:6px}
+.lbrow{display:grid;grid-template-columns:38px 1fr auto auto;gap:11px;align-items:center;padding:8px 12px;
+  background:rgba(35,44,58,.6);border:1px solid rgba(201,162,39,.2);border-radius:6px;
+  transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+.lbrow.top{border-color:var(--brass);background:rgba(201,162,39,.14)}
+.lbrank{font-family:var(--mono);font-size:16px;color:var(--brass-lt);text-align:center}
+.lbname{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lbd{font-family:var(--mono);font-size:13px;min-width:4ch;text-align:right}
+.lbd.up{color:var(--good)}.lbd.down{color:var(--bad)}.lbd.flat{color:var(--dim)}
+.lbscore{font-family:var(--mono);font-size:17px;font-weight:600;min-width:4ch;text-align:right;font-variant-numeric:tabular-nums}
+
+/* final */
+#finalOv{position:absolute;inset:0;background:radial-gradient(70% 60% at 50% 30%,#1b2230,#05070c);
+  display:grid;place-items:center;padding:3%;overflow:auto}
+.final-in{width:min(100%,900px);text-align:center}
+.final-in h2{font-family:var(--disp);font-size:clamp(26px,5vw,44px);color:var(--brass-lt);margin-bottom:6px}
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:16px;margin:30px 0 22px;flex-wrap:wrap}
+.pod{width:min(30%,190px);min-width:130px}
+.pod .nm{font-size:16px;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pod .bar{border-radius:8px 8px 0 0;display:grid;place-items:center;font-family:var(--mono);font-weight:600;
+  color:#141209;font-size:26px}
+.pod.p1 .bar{height:150px;background:linear-gradient(180deg,#eed58a,#c9a227)}
+.pod.p2 .bar{height:110px;background:linear-gradient(180deg,#cfd6dd,#8d97a3)}
+.pod.p3 .bar{height:84px;background:linear-gradient(180deg,#d2955f,#a06a38)}
+.pod .rk{font-family:var(--lat);font-size:12px;letter-spacing:.2em;color:var(--dim);margin-top:8px}
+
+/* ---------- player ---------- */
+#player{position:fixed;inset:0;display:none;grid-template-rows:auto 1fr;background:var(--void)}
+#player.on{display:grid}
+.pbar{display:flex;align-items:center;gap:12px;padding:11px 15px;background:rgba(10,14,20,.94);
+  border-bottom:1px solid rgba(201,162,39,.28)}
+.pname{font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.ptrust{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--brass-lt);font-variant-numeric:tabular-nums}
+.ptrust small{font-size:9.5px;color:var(--dim);letter-spacing:.14em;display:block;text-align:right;font-weight:400}
+.pbody{padding:16px 15px 26px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.pidle{display:grid;place-items:center;height:100%;text-align:center;gap:16px;padding:20px}
+.pidle .big{font-family:var(--disp);font-size:24px;color:var(--brass-lt)}
+.pidle .sm{color:var(--dim);font-size:14.5px;line-height:1.8}
+.spin{width:38px;height:38px;border:3px solid rgba(201,162,39,.25);border-top-color:var(--brass);
+  border-radius:50%;animation:sp 1s linear infinite;margin:0 auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.qstem{font-family:var(--disp);font-size:19px;line-height:1.5;margin-bottom:5px}
+.qnote{font-size:12.5px;color:var(--dim);margin-bottom:15px}
+.qmulti{font-size:12.5px;color:var(--patina);margin-bottom:12px}
+.opts{display:grid;gap:10px}
+.opt{display:grid;grid-template-columns:34px 1fr;gap:11px;align-items:center;text-align:left;
+  padding:14px 15px;border-radius:12px;line-height:1.5;font-size:15.5px;
+  background:linear-gradient(180deg,rgba(43,54,70,.94),rgba(16,21,30,.96));
+  border:1px solid rgba(201,162,39,.38);transition:transform .14s,border-color .14s,background .14s}
+.opt .n{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;
+  border:1px solid var(--brass);font-family:var(--mono);font-size:13px;color:var(--brass-lt);background:#0d1119}
+.opt:active{transform:scale(.98)}
+.opt.sel{border-color:var(--patina);background:linear-gradient(180deg,rgba(31,74,69,.95),rgba(14,32,30,.96))}
+.opt.sel .n{border-color:var(--patina);color:#8fe0d1;background:rgba(79,155,142,.3)}
+.opt.locked{opacity:.5}
+.psubmit{width:100%;margin-top:16px;padding:15px;border-radius:26px;font-size:17px;font-weight:700;
+  background:linear-gradient(180deg,#c9a227,#8a6d1f);color:#141209;border:1px solid var(--brass-lt)}
+.psubmit[disabled]{opacity:.35}
+.ptimer{height:8px;background:#0a0e15;border-radius:4px;overflow:hidden;margin-bottom:14px}
+.ptimer i{display:block;height:100%;background:linear-gradient(90deg,var(--patina),var(--brass));transition:width .95s linear}
+.ptimer.low i{background:var(--blood)}
+.result{text-align:center;padding:18px 0}
+.rbadge{width:78px;height:78px;border-radius:50%;display:grid;place-items:center;font-size:40px;font-weight:700;
+  margin:0 auto 14px}
+.rdelta{font-family:var(--mono);font-size:34px;font-weight:600;margin-bottom:6px}
+.rdelta.up{color:var(--good)}.rdelta.down{color:var(--bad)}
+.rwhy{font-size:14.5px;line-height:1.8;color:#ded9cd;text-align:left;padding:15px;border-radius:10px;
+  background:rgba(35,44,58,.6);border:1px solid rgba(201,162,39,.22);margin-top:14px}
+.rrank{margin-top:16px;font-size:15px;color:var(--brass-lt)}
+.rrank b{font-family:var(--mono);font-size:22px}
+.minilb{margin-top:16px;display:grid;gap:5px;text-align:left}
+.minirow{display:grid;grid-template-columns:30px 1fr auto;gap:9px;padding:7px 11px;border-radius:6px;
+  background:rgba(35,44,58,.5);font-size:14px}
+.minirow.me{background:rgba(201,162,39,.18);border:1px solid rgba(201,162,39,.4)}
+.minirow .r{font-family:var(--mono);color:var(--brass-lt);text-align:center}
+.minirow .s{font-family:var(--mono);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<!-- ===================== 開場 / 角色選擇 ===================== -->
+<div id="boot">
+  <div class="boot-in orn">
+    <div class="b-sup">Antimicrobial Decision · Interactive</div>
+    <div class="b-main">發燒的第七天</div>
+    <div class="b-sub" id="bootSub">抗生素臨床決策 · 互動教學</div>
+
+    <div id="bootRole">
+      <div class="b-row">
+        <button class="btn solid lg" id="bHost">主持人開新局</button>
+        <button class="btn lg" id="bJoin">我要加入</button>
+      </div>
+      <div class="b-note" id="modeNote"></div>
+    </div>
+
+    <div id="bootJoin" class="hide">
+      <div class="pinbox"><input id="inPin" inputmode="numeric" autocomplete="off" placeholder="0000" maxlength="6"></div>
+      <div class="pinbox" style="margin-top:10px">
+        <input id="inName" style="letter-spacing:normal;font-size:18px;font-family:var(--ui)"
+               maxlength="12" placeholder="你的暱稱" autocomplete="off">
+      </div>
+      <div class="err" id="joinErr"></div>
+      <div class="b-row">
+        <button class="btn solid lg" id="bDoJoin">加入</button>
+        <button class="btn" id="bBack">返回</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 主持人 ===================== -->
+<div id="host">
+  <div class="hbar">
+    <div class="pin" id="hPin">0000<small>ROOM PIN</small></div>
+    <div class="chip">參加者 <b id="hCount">0</b></div>
+    <div class="chip" id="hPhase">大廳</div>
+    <div class="grow"></div>
+    <div class="chip" id="hMode"></div>
+    <button class="btn" id="hToggleJoin">顯示加入畫面</button>
+    <button class="btn" id="hFull">全螢幕</button>
+  </div>
+
+  <div class="stage-main" id="hStage">
+    <img id="hImg" alt="">
+    <div id="joinOv">
+      <div class="join-in">
+        <div class="qrwrap"><canvas id="qr"></canvas></div>
+        <div class="join-txt">
+          <h2>用手機掃描加入</h2>
+          <div class="join-url" id="joinUrl"></div>
+          <div style="font-size:13.5px;color:var(--dim)">或直接開啟網址後輸入房號</div>
+          <div class="bigpin" id="bigPin">0000</div>
+          <div class="roster" id="roster"></div>
+        </div>
+      </div>
+    </div>
+    <div id="askOv" class="hide">
+      <div class="timer" id="hTimer">45</div>
+      <div class="tbar" id="hTbar"><i style="width:100%"></i></div>
+      <div class="answered"><span id="hAns">0</span><small> / <span id="hTot">0</span> 已作答</small></div>
+    </div>
+    <div id="revealOv" class="hide">
+      <div class="rev-pane">
+        <h3 id="distTitle">全班作答分布</h3>
+        <div class="dist" id="dist"></div>
+      </div>
+      <div class="rev-pane">
+        <h3>目前排行</h3>
+        <div class="lb" id="lb"></div>
+      </div>
+    </div>
+    <div id="finalOv" class="hide">
+      <div class="final-in">
+        <h2>最終成績</h2>
+        <div style="color:var(--dim);font-size:14px" id="finalSub">全六章 · 共 15 題</div>
+        <div class="podium" id="podium"></div>
+        <div class="lb" id="finalList" style="max-width:560px;margin:0 auto;text-align:left"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hctl">
+    <button class="btn" id="cPrev">← 上一張</button>
+    <button class="btn" id="cNext">下一張 →</button>
+    <div class="slidelabel" id="cLabel"></div>
+    <div class="grow"></div>
+    <label class="chip" style="display:flex;align-items:center;gap:6px">秒數
+      <input id="cSec" type="number" min="10" max="180" value="45"
+             style="width:56px;background:#0b0f16;border:1px solid rgba(201,162,39,.35);color:var(--brass-lt);
+                    border-radius:4px;padding:3px 6px;font-family:var(--mono)"></label>
+    <button class="btn solid" id="cAsk">開始作答</button>
+    <button class="btn" id="cLock">提前結束</button>
+    <button class="btn solid" id="cReveal">公布答案</button>
+    <button class="btn" id="cRank">隱藏排行</button>
+    <button class="btn" id="cFinal">最終成績</button>
+  </div>
+</div>
+
+<!-- ===================== 參加者 ===================== -->
+<div id="player">
+  <div class="pbar">
+    <div class="pname" id="pName">—</div>
+    <div class="ptrust"><span id="pTrust">100</span><small>TRUST</small></div>
+  </div>
+  <div class="pbody" id="pBody"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="qrcode.js"></script>
+<script src="net.js"></script>
+<script>
+(async function () {
+  const CFG  = window.FEVER7_CONFIG;
+  const DATA = window.FEVER7_DATA;
+  const $ = s => document.querySelector(s);
+  const net = await window.FEVER7_NET_READY;
+
+  const SLIDES = DATA.slides;
+  const Q = DATA.questions;
+  const imgSrc = n => 'img/' + String(n).padStart(2, '0') + '.webp';
+  const VMARK = { best: '◎', ok: '○', partial: '△', bad: '✕' };
+
+  const LAST = SLIDES[SLIDES.length - 1].n;
+
+  /* 分段預載：開場先載前 6 張，之後每次翻頁再往前抓 4 張 */
+  const preloaded = new Set();
+  function preload(n) {
+    for (let k = n; k <= n + 4; k++) {
+      if (k >= 1 && k <= LAST && !preloaded.has(k)) {
+        preloaded.add(k); const i = new Image(); i.src = imgSrc(k);
+      }
+    }
+  }
+  preload(1); preload(2);
+
+  $('#modeNote').textContent = net.mode === 'firebase'
+    ? '已連上 Firebase，參加者可用手機掃碼加入'
+    : '示範模式：尚未設定 Firebase。可在同一台電腦另開分頁測試，正式上課請先完成設定。';
+
+  const params = new URLSearchParams(location.search);
+  const urlPin = (params.get('r') || '').trim();
+
+  /* ================= 計分 ================= */
+  function scoreSingle(q, choice, ratio) {
+    const o = q.options.find(x => x.k === choice);
+    if (!o) return { delta: 0, verdict: 'bad' };
+    let d = o.base;
+    if (d > 0) d += Math.round((CFG.maxSpeedBonus || 5) * Math.max(0, Math.min(1, ratio)));
+    return { delta: d, verdict: o.verdict };
+  }
+  function scoreMulti(q, picks, ratio) {
+    const set = new Set(picks || []);
+    const req = q.options.filter(o => o.role === 'required').map(o => o.k);
+    const bad = q.options.filter(o => o.role === 'wrong').map(o => o.k);
+    const hitBad = bad.some(k => set.has(k));
+    const allReq = req.every(k => set.has(k));
+    if (hitBad) return { delta: q.scoring.wrong, verdict: 'bad' };
+    if (allReq) {
+      return { delta: q.scoring.full + Math.round((CFG.maxSpeedBonus || 5) * Math.max(0, Math.min(1, ratio))), verdict: 'best' };
+    }
+    return { delta: q.scoring.partial, verdict: 'partial' };
+  }
+  const scoreOf = (q, ans, ratio) => q.multi ? scoreMulti(q, ans, ratio) : scoreSingle(q, ans, ratio);
+
+  function rank(players) {
+    return Object.entries(players || {})
+      .map(([id, p]) => ({ id, ...p }))
+      .sort((a, b) => (b.trust - a.trust) || (a.joinedAt - b.joinedAt));
+  }
+
+  /* ================= 主持人 ================= */
+  function startHost() {
+    $('#boot').classList.add('hide');
+    $('#host').classList.add('on');
+
+    const len = CFG.pinLength || 4;
+    const pin = String(Math.floor(Math.random() * Math.pow(10, len))).padStart(len, '0');
+    let players = {}, state = null, tick = null, unsubA = null, answers = {}, rankOpen = true;
+
+    $('#hPin').innerHTML = pin + '<small>ROOM PIN</small>';
+    $('#bigPin').textContent = pin;
+    $('#hMode').textContent = net.mode === 'firebase' ? '● 已連線' : '○ 示範模式';
+
+    const base = location.origin + location.pathname;
+    const joinUrl = base + '?r=' + pin;
+    $('#joinUrl').textContent = joinUrl;
+    drawQR(joinUrl);
+
+    net.createRoom(pin, { phase: 'lobby', slide: 1, qid: null, startedAt: 0, seconds: CFG.defaultSeconds || 45 });
+
+    net.watchPlayers(pin, ps => {
+      players = ps || {};
+      const n = Object.keys(players).length;
+      $('#hCount').textContent = n; $('#hTot').textContent = n;
+      $('#roster').innerHTML = rank(players).map(p =>
+        '<span class="rchip">' + esc(p.name) + '</span>').join('');
+      if (state && state.phase === 'reveal') renderLB();
+      if (state && state.phase === 'final') renderFinal();
+    });
+
+    net.watchState(pin, s => { if (s) { state = s; paint(); } });
+
+    function set(patch) { return net.setState(pin, patch); }
+    const cur = () => SLIDES.find(x => x.n === (state ? state.slide : 1)) || SLIDES[0];
+
+    function paint() {
+      const sl = cur();
+      $('#hImg').src = imgSrc(sl.n);
+      preload(sl.n);
+      $('#cLabel').textContent = sl.n + ' / ' + LAST + '　' + sl.label;
+      const ph = state.phase;
+      $('#hPhase').textContent = ({ lobby: '大廳', show: '播放中', ask: '作答中', locked: '已截止', reveal: '公布答案', final: '最終成績' })[ph] || ph;
+
+      $('#joinOv').classList.toggle('hide', ph !== 'lobby');
+      $('#cRank').classList.toggle('hide', ph !== 'reveal');
+      $('#askOv').classList.toggle('hide', !(ph === 'ask' || ph === 'locked'));
+      $('#revealOv').classList.toggle('hide', ph !== 'reveal');
+      $('#finalOv').classList.toggle('hide', ph !== 'final');
+
+      $('#cAsk').disabled = !(sl.type === 'ask' && ph !== 'ask');
+      $('#cLock').disabled = ph !== 'ask';
+      $('#cReveal').disabled = !(sl.type === 'ask' && (ph === 'ask' || ph === 'locked'));
+
+      if (ph === 'ask') startTick(); else stopTick();
+      if (ph === 'ask' || ph === 'locked') watchAns(state.qid);
+      if (ph === 'reveal') {
+        renderDist(); renderLB();
+        $('#revealOv').classList.toggle('collapsed', !rankOpen);
+        $('#cRank').textContent = rankOpen ? '隱藏排行' : '顯示排行';
+      }
+      if (ph === 'final') renderFinal();
+    }
+
+    function startTick() {
+      stopTick();
+      const total = state.seconds * 1000;
+      const upd = () => {
+        const left = Math.max(0, state.startedAt + total - Date.now());
+        const sec = Math.ceil(left / 1000);
+        $('#hTimer').textContent = sec;
+        const r = left / total;
+        $('#hTbar').querySelector('i').style.width = (r * 100) + '%';
+        $('#hTimer').classList.toggle('low', sec <= 10);
+        $('#hTbar').classList.toggle('low', sec <= 10);
+        if (left <= 0) { stopTick(); set({ phase: 'locked' }); }
+      };
+      upd(); tick = setInterval(upd, 250);
+    }
+    function stopTick() { if (tick) { clearInterval(tick); tick = null; } }
+
+    function watchAns(qid) {
+      if (unsubA) { unsubA(); unsubA = null; }
+      if (!qid) return;
+      unsubA = net.watchAnswers(pin, qid, a => {
+        answers = a || {};
+        $('#hAns').textContent = Object.keys(answers).length;
+        if (state.phase === 'ask' &&
+            Object.keys(answers).length >= Object.keys(players).length &&
+            Object.keys(players).length > 0) {
+          $('#hTimer').classList.add('low');
+        }
+      });
+    }
+
+    function renderDist() {
+      const q = Q[state.qid]; if (!q) return;
+      $('#distTitle').innerHTML = '全班作答分布<br><span style="font-size:15px;color:var(--text)">' + fmt(q.stem) + '</span>';
+      const counts = {}; q.options.forEach(o => counts[o.k] = 0);
+      let tot = 0;
+      Object.values(answers).forEach(a => {
+        const picks = q.multi ? (a.choice || []) : [a.choice];
+        picks.forEach(k => { if (counts[k] !== undefined) counts[k]++; });
+        tot++;
+      });
+      const max = Math.max(1, ...Object.values(counts));
+      $('#dist').innerHTML = q.options.map(o =>
+        '<div class="drow">' +
+          '<div class="dmark v-' + o.verdict + '">' + VMARK[o.verdict] + '</div>' +
+          '<div class="dbar"><i style="width:' + (counts[o.k] / max * 100) + '%"></i>' +
+            '<span>' + o.k + '. ' + esc(o.text) + '</span></div>' +
+          '<div class="dn">' + counts[o.k] + '</div>' +
+        '</div>').join('') +
+        '<div style="margin-top:12px;font-size:12.5px;color:var(--dim)">作答人數 ' + tot +
+        (q.summary ? '　·　' + fmt(q.summary) : '') + '</div>';
+    }
+
+    function renderLB() {
+      const rs = rank(players).slice(0, 12);
+      $('#lb').innerHTML = rs.map((p, i) => {
+        const d = p.lastDelta || 0;
+        return '<div class="lbrow' + (i < 3 ? ' top' : '') + '">' +
+          '<div class="lbrank">' + (i + 1) + '</div>' +
+          '<div class="lbname">' + esc(p.name) + '</div>' +
+          '<div class="lbd ' + (d > 0 ? 'up' : d < 0 ? 'down' : 'flat') + '">' + (d > 0 ? '+' + d : d || '') + '</div>' +
+          '<div class="lbscore">' + p.trust + '</div></div>';
+      }).join('') || '<div style="color:var(--dim);font-size:14px">還沒有人加入</div>';
+    }
+
+    function renderFinal() {
+      const rs = rank(players);
+      const top = rs.slice(0, 3);
+      const ord = [1, 0, 2];
+      $('#podium').innerHTML = ord.filter(i => top[i]).map(i => {
+        const p = top[i];
+        return '<div class="pod p' + (i + 1) + '"><div class="nm">' + esc(p.name) + '</div>' +
+          '<div class="bar">' + p.trust + '</div><div class="rk">' + ['FIRST', 'SECOND', 'THIRD'][i] + '</div></div>';
+      }).join('');
+      $('#finalList').innerHTML = rs.slice(3, 15).map((p, i) =>
+        '<div class="lbrow"><div class="lbrank">' + (i + 4) + '</div>' +
+        '<div class="lbname">' + esc(p.name) + '</div><div class="lbd flat"></div>' +
+        '<div class="lbscore">' + p.trust + '</div></div>').join('');
+    }
+
+    /* --- 控制 --- */
+    function go(n) {
+      const t = SLIDES.find(x => x.n === n); if (!t) return;
+      set({ slide: n, phase: 'show', qid: null });
+    }
+    $('#cPrev').onclick = () => go(state.slide - 1);
+    $('#cNext').onclick = () => {
+      if (state.slide >= LAST) { set({ phase: 'final' }); return; }
+      go(state.slide + 1);
+    };
+    $('#cAsk').onclick = () => {
+      const sl = cur(); if (sl.type !== 'ask') return;
+      const sec = Math.max(10, Math.min(180, +$('#cSec').value || 45));
+      set({ phase: 'ask', qid: sl.q, startedAt: Date.now(), seconds: sec });
+    };
+    $('#cLock').onclick = () => set({ phase: 'locked' });
+    $('#cReveal').onclick = async () => {
+      const sl = cur(); const q = Q[sl.q]; if (!q) return;
+      const a = await net.getAnswers(pin, sl.q);
+      const total = (state.seconds || 45) * 1000;
+      for (const [pid, ans] of Object.entries(a || {})) {
+        if (ans.scored) continue;
+        const ratio = Math.max(0, Math.min(1, 1 - ((ans.at - state.startedAt) / total)));
+        const r = scoreOf(q, ans.choice, ratio);
+        const cu = players[pid] || { trust: CFG.startTrust || 100 };
+        await net.updatePlayer(pin, pid, { trust: (cu.trust || 0) + r.delta, lastDelta: r.delta, lastVerdict: r.verdict });
+        await net.answer(pin, sl.q, pid, Object.assign({}, ans, { scored: true, delta: r.delta, verdict: r.verdict }));
+      }
+      /* 沒作答的人歸零 delta，排行榜才不會殘留上一題 */
+      for (const [pid, p] of Object.entries(players)) {
+        if (!a[pid] && p.lastDelta) await net.updatePlayer(pin, pid, { lastDelta: 0, lastVerdict: null });
+      }
+      set({ slide: q.verdictSlide, phase: 'reveal' });
+    };
+    $('#cRank').onclick = () => {
+      rankOpen = !rankOpen;
+      $('#revealOv').classList.toggle('collapsed', !rankOpen);
+      $('#cRank').textContent = rankOpen ? '隱藏排行' : '顯示排行';
+    };
+    $('#cFinal').onclick = () => set({ phase: 'final' });
+    $('#hToggleJoin').onclick = () => set({ phase: state.phase === 'lobby' ? 'show' : 'lobby' });
+    $('#hFull').onclick = () => document.fullscreenElement
+      ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); $('#cNext').click(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); $('#cPrev').click(); }
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (!$('#cAsk').disabled) $('#cAsk').click();
+        else if (!$('#cReveal').disabled) $('#cReveal').click();
+        else $('#cNext').click();
+      }
+      if (e.key === 'f' || e.key === 'F') $('#hFull').click();
+    });
+  }
+
+  function drawQR(url) {
+    try {
+      const q = qrcode(0, 'M'); q.addData(url); q.make();
+      const n = q.getModuleCount(), px = 8, pad = 2, size = (n + pad * 2) * px;
+      const c = $('#qr'); c.width = size; c.height = size;
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, size, size);
+      g.fillStyle = '#0a0d14';
+      for (let r = 0; r < n; r++) for (let col = 0; col < n; col++)
+        if (q.isDark(r, col)) g.fillRect((col + pad) * px, (r + pad) * px, px, px);
+    } catch (e) {
+      $('#qr').outerHTML = '<div style="color:#0a0d14;font-family:monospace;padding:20px;font-size:13px">' +
+        'QR 產生失敗，請用下方網址</div>';
+    }
+  }
+
+  /* ================= 參加者 ================= */
+  async function startPlayer(pin, name) {
+    $('#boot').classList.add('hide');
+    $('#player').classList.add('on');
+
+    /* 用 sessionStorage：同一分頁重新整理會保留身分，
+       但同一台電腦另開分頁是不同的人（測試時才能模擬兩位學員）。 */
+    const KEY = 'f7:' + pin;
+    let pid = null, me = null, state = null, players = {}, myAns = null, tick = null;
+
+    const saved = sessionStorage.getItem(KEY);
+    if (saved) { const p = await net.rejoin(pin, saved); if (p) { pid = saved; me = p; } }
+    if (!pid) { pid = await net.join(pin, name, CFG.startTrust || 100); sessionStorage.setItem(KEY, pid); }
+
+    net.watchPlayers(pin, ps => {
+      players = ps || {}; me = players[pid] || me;
+      if (me) { $('#pName').textContent = me.name; $('#pTrust').textContent = me.trust; }
+      if (state && state.phase === 'reveal') paintP();
+      if (state && state.phase === 'final') paintP();
+    });
+    net.watchState(pin, s => { if (s) { state = s; paintP(); } });
+
+    function paintP() {
+      const body = $('#pBody');
+      const ph = state.phase;
+
+      if (ph === 'ask' || ph === 'locked') {
+        const q = Q[state.qid];
+        if (!q) return;
+        if (body.dataset.q !== state.qid + ':' + ph) { body.dataset.q = state.qid + ':' + ph; drawQ(q, ph); }
+        return;
+      }
+      body.dataset.q = '';
+      stopT();
+
+      if (ph === 'reveal') { drawResult(); return; }
+      if (ph === 'final') { drawFinal(); return; }
+
+      body.innerHTML = '<div class="pidle"><div><div class="spin"></div></div>' +
+        '<div class="big">' + (ph === 'lobby' ? '已加入，等待開始' : '請看螢幕') + '</div>' +
+        '<div class="sm">' + (ph === 'lobby'
+          ? '房號 ' + pin + '<br>主持人開始後這裡會出現題目'
+          : '輪到作答時，選項會出現在這裡') + '</div></div>';
+    }
+
+    function drawQ(q, ph) {
+      const locked = ph === 'locked' || (myAns && myAns.qid === state.qid);
+      let picks = (myAns && myAns.qid === state.qid) ? (q.multi ? myAns.choice.slice() : [myAns.choice]) : [];
+      const body = $('#pBody');
+      body.innerHTML =
+        '<div class="ptimer" id="pt"><i style="width:100%"></i></div>' +
+        '<div class="qstem">' + fmt(q.stem) + '</div>' +
+        '<div class="qnote">' + fmt(q.note || '') + '</div>' +
+        (q.multi ? '<div class="qmulti">可複選，選好後按下方送出</div>' : '') +
+        '<div class="opts" id="po"></div>' +
+        (q.multi ? '<button class="psubmit" id="psub">送出答案</button>' : '') +
+        '<div id="pmsg" style="text-align:center;margin-top:14px;color:var(--dim);font-size:14px"></div>';
+
+      const ob = $('#po');
+      q.options.forEach(o => {
+        const b = document.createElement('button');
+        b.className = 'opt' + (picks.includes(o.k) ? ' sel' : '') + (locked ? ' locked' : '');
+        b.innerHTML = '<span class="n">' + o.k + '</span><span>' + esc(o.text) + '</span>';
+        b.onclick = () => {
+          if (locked) return;
+          if (q.multi) {
+            const i = picks.indexOf(o.k);
+            if (i >= 0) { picks.splice(i, 1); b.classList.remove('sel'); }
+            else { picks.push(o.k); b.classList.add('sel'); }
+            $('#psub').disabled = picks.length === 0;
+          } else { send(q, o.k); }
+        };
+        ob.appendChild(b);
+      });
+      if (q.multi) { $('#psub').disabled = picks.length === 0; $('#psub').onclick = () => send(q, picks.slice()); }
+      if (locked) msg(myAns && myAns.qid === state.qid ? '已送出，等待公布' : '作答已截止');
+      startT();
+    }
+
+    function msg(t) { const m = $('#pmsg'); if (m) m.textContent = t; }
+
+    async function send(q, choice) {
+      myAns = { qid: state.qid, choice, at: Date.now() };
+      await net.answer(pin, state.qid, pid, { choice, at: myAns.at });
+      document.querySelectorAll('.opt').forEach(b => b.classList.add('locked'));
+      const sub = $('#psub'); if (sub) sub.disabled = true;
+      msg('已送出，等待公布');
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+
+    function startT() {
+      stopT();
+      const el = $('#pt'); if (!el) return;
+      const total = state.seconds * 1000;
+      const upd = () => {
+        const left = Math.max(0, state.startedAt + total - Date.now());
+        const r = left / total;
+        el.querySelector('i').style.width = (r * 100) + '%';
+        el.classList.toggle('low', left <= 10000);
+        if (left <= 0) stopT();
+      };
+      upd(); tick = setInterval(upd, 300);
+    }
+    function stopT() { if (tick) { clearInterval(tick); tick = null; } }
+
+    function drawResult() {
+      const q = Q[state.qid] || Object.values(Q).find(x => x.verdictSlide === state.slide);
+      const rs = rank(players);
+      const myRank = rs.findIndex(p => p.id === pid) + 1;
+      const d = (me && me.lastDelta) || 0;
+      const v = (me && me.lastVerdict) || null;
+      const answeredThis = myAns && q && myAns.qid === (q === Q[state.qid] ? state.qid : myAns.qid);
+
+      let whyHtml = '';
+      if (q && answeredThis) {
+        const picks = q.multi ? myAns.choice : [myAns.choice];
+        whyHtml = picks.map(k => {
+          const o = q.options.find(x => x.k === k); if (!o) return '';
+          return '<div style="margin-bottom:9px"><b style="color:var(--brass-lt)">' +
+            VMARK[o.verdict] + ' ' + o.k + '. ' + fmt(o.text) + '</b><br>' + fmt(o.why) + '</div>';
+        }).join('');
+      }
+
+      $('#pBody').innerHTML =
+        '<div class="result">' +
+          (v ? '<div class="rbadge v-' + v + '">' + VMARK[v] + '</div>' : '') +
+          '<div class="rdelta ' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">' + (d > 0 ? '+' + d : d) + '</div>' +
+          '<div style="color:var(--dim);font-size:13px">Trust ' + (me ? me.trust : '—') + '</div>' +
+          (myRank ? '<div class="rrank">目前排名 <b>' + myRank + '</b> / ' + rs.length + '</div>' : '') +
+        '</div>' +
+        (whyHtml ? '<div class="rwhy">' + whyHtml + '</div>' : '') +
+        '<div class="minilb">' + rs.slice(0, 5).map((p, i) =>
+          '<div class="minirow' + (p.id === pid ? ' me' : '') + '"><div class="r">' + (i + 1) + '</div>' +
+          '<div>' + esc(p.name) + '</div><div class="s">' + p.trust + '</div></div>').join('') + '</div>';
+    }
+
+    function drawFinal() {
+      const rs = rank(players);
+      const myRank = rs.findIndex(p => p.id === pid) + 1;
+      $('#pBody').innerHTML =
+        '<div class="result">' +
+          '<div style="font-family:var(--disp);font-size:22px;color:var(--brass-lt);margin-bottom:10px">最終成績</div>' +
+          '<div class="rdelta up" style="font-size:46px">' + (me ? me.trust : '—') + '</div>' +
+          '<div class="rrank">第 <b>' + myRank + '</b> 名 / 共 ' + rs.length + ' 人</div>' +
+        '</div>' +
+        '<div class="minilb">' + rs.slice(0, 10).map((p, i) =>
+          '<div class="minirow' + (p.id === pid ? ' me' : '') + '"><div class="r">' + (i + 1) + '</div>' +
+          '<div>' + esc(p.name) + '</div><div class="s">' + p.trust + '</div></div>').join('') + '</div>';
+    }
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  }
+  /* 逸出後再把 **粗體** 與 *斜體* 轉回標籤（斜體用於微生物學名） */
+  function fmt(s) {
+    return esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/\*([^*]+)\*/g, '<i>$1</i>');
+  }
+
+  /* ================= 開場流程 ================= */
+  $('#bHost').onclick = startHost;
+  $('#bJoin').onclick = () => { $('#bootRole').classList.add('hide'); $('#bootJoin').classList.remove('hide'); $('#inPin').focus(); };
+  $('#bBack').onclick = () => { $('#bootJoin').classList.add('hide'); $('#bootRole').classList.remove('hide'); };
+  $('#bDoJoin').onclick = doJoin;
+  $('#inName').addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
+
+  async function doJoin() {
+    const pin = $('#inPin').value.trim();
+    const name = $('#inName').value.trim();
+    const err = $('#joinErr');
+    if (!/^\d{3,6}$/.test(pin)) { err.textContent = '請輸入正確的房號'; return; }
+    if (!name) { err.textContent = '請輸入暱稱'; return; }
+    err.textContent = '連線中…';
+    try {
+      if (!(await net.roomExists(pin))) { err.textContent = '找不到這個房號，請確認主持人畫面'; return; }
+      await startPlayer(pin, name);
+    } catch (e) { err.textContent = '連線失敗：' + e.message; }
+  }
+
+  if (urlPin) {
+    $('#bootRole').classList.add('hide');
+    $('#bootJoin').classList.remove('hide');
+    $('#inPin').value = urlPin;
+    $('#bootSub').textContent = '房號 ' + urlPin + '　·　輸入暱稱即可加入';
+    setTimeout(() => $('#inName').focus(), 100);
+  }
+})();
+</script>
+</body>
+</html>
