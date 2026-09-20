@@ -19,7 +19,7 @@ window.FEVER7_CONFIG = {
 
 /* ===== 主持人密碼 ===== */
 (function () {
-  var PASS = "fever7";
+  var PASS = "10996";
   if (!PASS) return;
   var KEY = 'f7:host-ok';
   document.addEventListener('DOMContentLoaded', function () {
