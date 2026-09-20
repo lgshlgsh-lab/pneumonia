@@ -151,3 +151,28 @@ window.FEVER7_CONFIG = {
     }).observe(h, { attributes: true, attributeFilter: ['class'] });
   });
 })();
+/* ===== 背景音樂 — 補強掛載 ===== */
+(function () {
+  console.log('[BGM] 補強已載入');
+  if (!window.FEVER7_BGM) { console.warn('[BGM] 找不到音樂主程式'); return; }
+  var started = false;
+  function mount() {
+    var bar = document.querySelector('#host .hbar');
+    if (!bar || document.getElementById('bgmBtn')) return;
+    var b = document.createElement('button');
+    b.className = 'btn'; b.id = 'bgmBtn'; b.title = '背景音樂（快捷鍵 M）';
+    b.textContent = '♪ 音樂';
+    b.onclick = function () { window.FEVER7_BGM.toggle(); };
+    var f = document.getElementById('hFull');
+    f ? bar.insertBefore(b, f) : bar.appendChild(b);
+    console.log('[BGM] 按鈕已加入');
+  }
+  var id = setInterval(function () {
+    mount();
+    var h = document.getElementById('host');
+    if (!started && h && h.classList.contains('on')) {
+      started = true; window.FEVER7_BGM.start(); clearInterval(id);
+    }
+  }, 400);
+  setTimeout(function () { clearInterval(id); }, 600000);
+})();
