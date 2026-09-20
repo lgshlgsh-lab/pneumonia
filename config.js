@@ -29,7 +29,7 @@ window.FEVER7_CONFIG = {
   startTrust: 100,
 
   // 答對時最高可再加幾分的速度獎勵（越快答對加越多；答錯不扣更多）
-  maxSpeedBonus: 5,
+  maxSpeedBonus: 0,
 
   // 房間代碼長度（4 碼好念，適合口頭報給學員）
   pinLength: 4
