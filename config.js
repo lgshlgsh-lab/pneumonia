@@ -32,39 +32,36 @@ window.FEVER7_CONFIG = {
   // 房間代碼長度
   pinLength: 4
 };
-/* ===== 背景音樂（只在主持人畫面播放，學員手機不會有聲音） ===== */
+/* ===== 背景音樂（只在主持人畫面播放） ===== */
 (function () {
-  var BGM_URL = "";      // 留空 = 用瀏覽器即時合成的環境音；或填 "bgm.mp3"
-  var VOLUME  = 0.10;    // 0～1，建議 0.06～0.15
-  var AUTO    = true;    // 進主持人畫面自動開始
-
-  var on = false, ac = null, master = null, el = null, nodes = [];
+  var BGM_URL = "";      // 或填 "bgm.mp3"
+  var VOLUME  = 0.18;
+  var AUTO    = true;
+  var on=false, ac=null, master=null, el=null, nodes=[], waiting=false;
 
   function build(ctx, dest) {
-    var out = ctx.createGain(); out.gain.value = 1; out.connect(dest);
-    var lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 0.7; lp.connect(out);
-    var lfo = ctx.createOscillator(), lfoG = ctx.createGain();
-    lfo.frequency.value = 1 / 40; lfoG.gain.value = 180;
+    var lp=ctx.createBiquadFilter();
+    lp.type='lowpass'; lp.frequency.value=1400; lp.Q.value=0.6; lp.connect(dest);
+    var lfo=ctx.createOscillator(), lfoG=ctx.createGain();
+    lfo.frequency.value=1/35; lfoG.gain.value=500;
     lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
-    var made = [lfo];
-    var chords = [[73.42,110.00,146.83],[58.27,87.31,116.54],
-                  [87.31,130.81,174.61],[65.41,98.00,130.81]];
-    var STEP = 24, FADE = 8;
-    chords.forEach(function (ch, ci) {
-      ch.forEach(function (f, vi) {
-        var o = ctx.createOscillator();
-        o.type = vi === 0 ? 'sine' : 'triangle';
-        o.frequency.value = f; o.detune.value = (vi - 1) * 4;
-        var g = ctx.createGain(); g.gain.value = 0;
+    var made=[lfo];
+    var chords=[[146.83,220.00,293.66,440.00],[116.54,174.61,233.08,349.23],
+                [174.61,261.63,349.23,523.25],[130.81,196.00,261.63,392.00]];
+    var STEP=24, FADE=8, lvls=[0.26,0.18,0.13,0.08];
+    chords.forEach(function(ch,ci){
+      ch.forEach(function(f,vi){
+        var o=ctx.createOscillator();
+        o.type=vi===0?'triangle':'sine';
+        o.frequency.value=f; o.detune.value=(vi%2?5:-5);
+        var g=ctx.createGain(); g.gain.value=0;
         o.connect(g); g.connect(lp);
-        var lvl = vi === 0 ? 0.30 : 0.16;
-        for (var r = 0; r < 20; r++) {
-          var t = ctx.currentTime + r * chords.length * STEP + ci * STEP;
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.linearRampToValueAtTime(lvl, t + FADE);
-          g.gain.setValueAtTime(lvl, t + STEP - FADE);
-          g.gain.linearRampToValueAtTime(0.0001, t + STEP);
+        for(var r=0;r<20;r++){
+          var t=ctx.currentTime+r*chords.length*STEP+ci*STEP;
+          g.gain.setValueAtTime(0.0001,t);
+          g.gain.linearRampToValueAtTime(lvls[vi],t+FADE);
+          g.gain.setValueAtTime(lvls[vi],t+STEP-FADE);
+          g.gain.linearRampToValueAtTime(0.0001,t+STEP);
         }
         o.start(); made.push(o);
       });
@@ -72,107 +69,108 @@ window.FEVER7_CONFIG = {
     return made;
   }
 
-  function start() {
-    if (on) return;
-    on = true;
-    if (BGM_URL) {
-      if (!el) { el = new Audio(BGM_URL); el.loop = true; el.volume = 0; }
-      el.play().then(function () {
-        var v = 0, id = setInterval(function () {
-          v = Math.min(VOLUME, v + VOLUME / 40); el.volume = v;
-          if (v >= VOLUME) clearInterval(id);
-        }, 100);
-      }).catch(function () { on = false; paint(); });
-    } else {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) { on = false; return; }
-      ac = new AC();
-      if (ac.state === 'suspended') ac.resume();
-      master = ac.createGain(); master.gain.value = 0.0001;
-      master.connect(ac.destination);
-      master.gain.exponentialRampToValueAtTime(VOLUME, ac.currentTime + 4);
-      nodes = build(ac, master);
+  function armGesture(){
+    if(waiting)return; waiting=true;
+    var go=function(){
+      waiting=false;
+      ['pointerdown','keydown'].forEach(function(t){document.removeEventListener(t,go,true);});
+      if(ac&&ac.state==='suspended')ac.resume().then(function(){console.log('[BGM] 已解鎖');paint();});
+    };
+    ['pointerdown','keydown'].forEach(function(t){document.addEventListener(t,go,true);});
+    console.warn('[BGM] 瀏覽器擋住自動播放，點畫面任一處即可開始');
+  }
+
+  function start(){
+    if(on)return; on=true;
+    if(BGM_URL){
+      if(!el){el=new Audio(BGM_URL);el.loop=true;el.volume=0;}
+      el.play().then(function(){
+        var v=0,id=setInterval(function(){v=Math.min(VOLUME,v+VOLUME/40);el.volume=v;if(v>=VOLUME)clearInterval(id);},100);
+      }).catch(function(e){console.warn('[BGM] 音檔無法播放：',e.message);on=false;armGesture();paint();});
+      paint(); return;
     }
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC){console.warn('[BGM] 不支援 Web Audio');on=false;return;}
+    ac=new AC();
+    master=ac.createGain(); master.gain.value=0.0001; master.connect(ac.destination);
+    master.gain.exponentialRampToValueAtTime(VOLUME,ac.currentTime+4);
+    nodes=build(ac,master);
+    ac.resume().then(function(){
+      console.log('[BGM] 播放中，state =',ac.state,'音量 =',VOLUME);
+      if(ac.state!=='running')armGesture();
+    }).catch(function(){armGesture();});
+    if(ac.state==='suspended')armGesture();
     paint();
   }
 
-  function stop() {
-    if (!on) return;
-    on = false;
-    if (el) {
-      var v = el.volume, id = setInterval(function () {
-        v = Math.max(0, v - VOLUME / 20); el.volume = v;
-        if (v <= 0) { clearInterval(id); el.pause(); }
-      }, 60);
-    }
-    if (ac) {
-      var t = ac.currentTime;
+  function stop(){
+    if(!on)return; on=false;
+    if(el){var v=el.volume,id=setInterval(function(){v=Math.max(0,v-VOLUME/20);el.volume=v;if(v<=0){clearInterval(id);el.pause();}},60);}
+    if(ac){
+      var t=ac.currentTime;
       master.gain.cancelScheduledValues(t);
-      master.gain.setValueAtTime(master.gain.value, t);
-      master.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
-      var a = ac, n = nodes;
-      setTimeout(function () {
-        n.forEach(function (o) { try { o.stop(); } catch (e) {} });
-        try { a.close(); } catch (e) {}
-      }, 1500);
-      ac = null; master = null; nodes = [];
+      master.gain.setValueAtTime(master.gain.value,t);
+      master.gain.exponentialRampToValueAtTime(0.0001,t+1.2);
+      var a=ac,n=nodes;
+      setTimeout(function(){n.forEach(function(o){try{o.stop();}catch(e){}});try{a.close();}catch(e){}},1500);
+      ac=null;master=null;nodes=[];
     }
     paint();
   }
 
-  function toggle() { on ? stop() : start(); }
+  function toggle(){ on?stop():start(); }
 
-  function paint() {
-    var b = document.getElementById('bgmBtn');
-    if (b) { b.textContent = on ? '♪ 音樂 開' : '♪ 音樂 關'; b.style.opacity = on ? 1 : .55; }
+  function beep(){
+    var AC=window.AudioContext||window.webkitAudioContext, c=new AC(); c.resume();
+    var o=c.createOscillator(), g=c.createGain();
+    o.type='sine'; o.frequency.value=440;
+    g.gain.setValueAtTime(0.0001,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25,c.currentTime+0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+1.0);
+    o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+1.1);
+    setTimeout(function(){c.close();},1500);
+    console.log('[BGM] 測試音 440 Hz，state =',c.state);
+    return c.state;
   }
 
-  function mount() {
-    var bar = document.querySelector('#host .hbar');
-    if (!bar || document.getElementById('bgmBtn')) return;
-    var b = document.createElement('button');
-    b.className = 'btn'; b.id = 'bgmBtn'; b.title = '背景音樂（快捷鍵 M）';
-    b.onclick = toggle;
-    var full = document.getElementById('hFull');
-    full ? bar.insertBefore(b, full) : bar.appendChild(b);
-    paint();
+  function paint(){
+    var b=document.getElementById('bgmBtn'); if(!b)return;
+    var locked=on&&ac&&ac.state!=='running';
+    b.textContent=locked?'♪ 音樂 待解鎖':(on?'♪ 音樂 開':'♪ 音樂 關');
+    b.style.opacity=on?1:.55;
   }
 
-  document.addEventListener('keydown', function (e) {
-    if (e.target && e.target.tagName === 'INPUT') return;
-    if (e.key === 'm' || e.key === 'M') toggle();
+  function mount(){
+    var bar=document.querySelector('#host .hbar');
+    if(!bar||document.getElementById('bgmBtn'))return;
+    var b=document.createElement('button');
+    b.className='btn'; b.id='bgmBtn'; b.title='背景音樂（快捷鍵 M）';
+    b.onclick=toggle;
+    var full=document.getElementById('hFull');
+    full?bar.insertBefore(b,full):bar.appendChild(b);
+    paint(); console.log('[BGM] 按鈕已加入');
+  }
+
+  document.addEventListener('keydown',function(e){
+    if(e.target&&e.target.tagName==='INPUT')return;
+    if(e.key==='m'||e.key==='M')toggle();
   });
 
-  document.addEventListener('DOMContentLoaded', function () {
-    var h = document.getElementById('host');
-    if (!h) return;
-    new MutationObserver(function () {
-      if (h.classList.contains('on')) { mount(); if (AUTO) start(); }
-    }).observe(h, { attributes: true, attributeFilter: ['class'] });
+  function ready(fn){
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fn); else fn();
+  }
+  ready(function(){
+    console.log('[BGM] 已載入'); mount();
+    var started=false;
+    var id=setInterval(function(){
+      mount();
+      var h=document.getElementById('host');
+      if(!started&&h&&h.classList.contains('on')){started=true;if(AUTO)start();clearInterval(id);}
+    },400);
+    setTimeout(function(){clearInterval(id);},600000);
   });
+
+  window.FEVER7_BGM={start:start,stop:stop,toggle:toggle,build:build,mount:mount,beep:beep};
 })();
-/* ===== 背景音樂 — 補強掛載 ===== */
-(function () {
-  console.log('[BGM] 補強已載入');
-  if (!window.FEVER7_BGM) { console.warn('[BGM] 找不到音樂主程式'); return; }
-  var started = false;
-  function mount() {
-    var bar = document.querySelector('#host .hbar');
-    if (!bar || document.getElementById('bgmBtn')) return;
-    var b = document.createElement('button');
-    b.className = 'btn'; b.id = 'bgmBtn'; b.title = '背景音樂（快捷鍵 M）';
-    b.textContent = '♪ 音樂';
-    b.onclick = function () { window.FEVER7_BGM.toggle(); };
-    var f = document.getElementById('hFull');
-    f ? bar.insertBefore(b, f) : bar.appendChild(b);
-    console.log('[BGM] 按鈕已加入');
-  }
-  var id = setInterval(function () {
-    mount();
-    var h = document.getElementById('host');
-    if (!started && h && h.classList.contains('on')) {
-      started = true; window.FEVER7_BGM.start(); clearInterval(id);
-    }
-  }, 400);
   setTimeout(function () { clearInterval(id); }, 600000);
 })();
