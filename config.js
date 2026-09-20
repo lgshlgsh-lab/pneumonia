@@ -32,7 +32,6 @@ window.FEVER7_CONFIG = {
   // 房間代碼長度
   pinLength: 4
 };
-
 /* ===== 背景音樂（只在主持人畫面播放，學員手機不會有聲音） ===== */
 (function () {
   var BGM_URL = "";      // 留空 = 用瀏覽器即時合成的環境音；或填 "bgm.mp3"
