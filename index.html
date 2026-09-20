@@ -420,7 +420,7 @@ input{font:inherit}
     net.watchState(pin, s => { if (s) { state = s; paint(); } });
 
     function set(patch) { return net.setState(pin, patch); }
-    const cur = () => SLIDES.find(x => x.n === (state ? state.slide : 1)) || SLIDES[0];
+        function cur() { return SLIDES.find(x => x.n === (state ? state.slide : 1)) || SLIDES[0]; }
 
     function paint() {
       const sl = cur();
