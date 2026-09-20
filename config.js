@@ -42,92 +42,78 @@ window.FEVER7_CONFIG = {
 })();
 
 
-/* ===== 背景音樂（只在主持人畫面播放） ===== */
+/* ===== 背景音樂：兩首依投影片自動切換（只在主持人畫面播放） ===== */
 (function () {
-  var BGM_URL = "";
-  var VOLUME  = 0.4;
-  var AUTO    = true;
-  var on=false, ac=null, master=null, el=null, nodes=[], waiting=false;
+  var TRACK_A   = "BGM_1.mp3";   // 投影片 1–83
+  var TRACK_B   = "BGM_2.mp3";   // 投影片 84–87
+  var SWITCH_AT = 84;
+  var VOLUME    = 0.18;
+  var FADE_MS   = 1500;
+  var AUTO      = true;
 
-  function build(ctx, dest) {
-    var lp=ctx.createBiquadFilter();
-    lp.type='lowpass'; lp.frequency.value=1400; lp.Q.value=0.6; lp.connect(dest);
-    var lfo=ctx.createOscillator(), lfoG=ctx.createGain();
-    lfo.frequency.value=1/35; lfoG.gain.value=500;
-    lfo.connect(lfoG); lfoG.connect(lp.frequency); lfo.start();
-    var made=[lfo];
-    var chords=[[146.83,220.00,293.66,440.00],[116.54,174.61,233.08,349.23],
-                [174.61,261.63,349.23,523.25],[130.81,196.00,261.63,392.00]];
-    var STEP=24, FADE=8, lvls=[0.26,0.18,0.13,0.08];
-    chords.forEach(function(ch,ci){
-      ch.forEach(function(f,vi){
-        var o=ctx.createOscillator();
-        o.type=vi===0?'triangle':'sine';
-        o.frequency.value=f; o.detune.value=(vi%2?5:-5);
-        var g=ctx.createGain(); g.gain.value=0;
-        o.connect(g); g.connect(lp);
-        for(var r=0;r<20;r++){
-          var t=ctx.currentTime+r*chords.length*STEP+ci*STEP;
-          g.gain.setValueAtTime(0.0001,t);
-          g.gain.linearRampToValueAtTime(lvls[vi],t+FADE);
-          g.gain.setValueAtTime(lvls[vi],t+STEP-FADE);
-          g.gain.linearRampToValueAtTime(0.0001,t+STEP);
-        }
-        o.start(); made.push(o);
-      });
+  var on=false, curKey=null, players={}, fades={}, armed=false;
+
+  function el(src){
+    if(players[src])return players[src];
+    var a=new Audio(src); a.loop=true; a.volume=0; a.preload='auto';
+    a.addEventListener('error',function(){
+      console.warn('[BGM] 找不到或無法播放：'+src+'（要放在 index.html 同一層）');
     });
-    return made;
+    players[src]=a; return a;
+  }
+
+  function fadeTo(a,target,ms,andPause){
+    if(fades[a.src])clearInterval(fades[a.src]);
+    var steps=Math.max(1,Math.round(ms/50));
+    var step=(target-a.volume)/steps, n=0;
+    fades[a.src]=setInterval(function(){
+      n++; a.volume=Math.min(1,Math.max(0,a.volume+step));
+      if(n>=steps){
+        clearInterval(fades[a.src]); fades[a.src]=null;
+        a.volume=Math.min(1,Math.max(0,target));
+        if(andPause&&target===0)a.pause();
+      }
+    },50);
   }
 
   function armGesture(){
-    if(waiting)return; waiting=true;
+    if(armed)return; armed=true;
     var go=function(){
-      waiting=false;
+      armed=false;
       ['pointerdown','keydown'].forEach(function(t){document.removeEventListener(t,go,true);});
-      if(ac&&ac.state==='suspended')ac.resume().then(function(){console.log('[BGM] 已解鎖');paint();});
+      if(on){curKey=null;apply();}
     };
     ['pointerdown','keydown'].forEach(function(t){document.addEventListener(t,go,true);});
-    console.warn('[BGM] 瀏覽器擋住自動播放，點畫面任一處即可開始');
+    console.warn('[BGM] 瀏覽器擋住自動播放，點畫面任一處或按 M 即可開始');
   }
 
-  function start(){
-    if(on)return; on=true;
-    if(BGM_URL){
-      if(!el){el=new Audio(BGM_URL);el.loop=true;el.volume=0;}
-      el.play().then(function(){
-        var v=0,id=setInterval(function(){v=Math.min(VOLUME,v+VOLUME/40);el.volume=v;if(v>=VOLUME)clearInterval(id);},100);
-      }).catch(function(e){console.warn('[BGM] 音檔無法播放：',e.message);on=false;armGesture();paint();});
-      paint(); return;
-    }
-    var AC=window.AudioContext||window.webkitAudioContext;
-    if(!AC){console.warn('[BGM] 不支援 Web Audio');on=false;return;}
-    ac=new AC();
-    master=ac.createGain(); master.gain.value=0.0001; master.connect(ac.destination);
-    master.gain.exponentialRampToValueAtTime(VOLUME,ac.currentTime+4);
-    nodes=build(ac,master);
-    ac.resume().then(function(){
-      console.log('[BGM] 播放中，state =',ac.state,'音量 =',VOLUME);
-      if(ac.state!=='running')armGesture();
-    }).catch(function(){armGesture();});
-    if(ac.state==='suspended')armGesture();
-    paint();
+  function slideNo(){
+    var lab=document.getElementById('cLabel');
+    if(!lab)return 1;
+    var m=/(\d+)/.exec(lab.textContent||'');
+    return m?parseInt(m[1],10):1;
+  }
+  function wanted(){ return slideNo()>=SWITCH_AT?TRACK_B:TRACK_A; }
+
+  function apply(){
+    if(!on)return;
+    var want=wanted();
+    if(want===curKey)return;
+    var prev=curKey; curKey=want;
+    var a=el(want);
+    a.play().then(function(){
+      fadeTo(a,VOLUME,FADE_MS);
+      if(prev)fadeTo(el(prev),0,FADE_MS,true);
+      console.log('[BGM] 播放 '+want+'（第 '+slideNo()+' 張）');
+    }).catch(function(){ curKey=prev; armGesture(); });
   }
 
+  function start(){ if(on)return; on=true; curKey=null; apply(); paint(); }
   function stop(){
     if(!on)return; on=false;
-    if(el){var v=el.volume,id=setInterval(function(){v=Math.max(0,v-VOLUME/20);el.volume=v;if(v<=0){clearInterval(id);el.pause();}},60);}
-    if(ac){
-      var t=ac.currentTime;
-      master.gain.cancelScheduledValues(t);
-      master.gain.setValueAtTime(master.gain.value,t);
-      master.gain.exponentialRampToValueAtTime(0.0001,t+1.2);
-      var a=ac,n=nodes;
-      setTimeout(function(){n.forEach(function(o){try{o.stop();}catch(e){}});try{a.close();}catch(e){}},1500);
-      ac=null;master=null;nodes=[];
-    }
-    paint();
+    Object.keys(players).forEach(function(k){fadeTo(players[k],0,600,true);});
+    curKey=null; paint();
   }
-
   function toggle(){ on?stop():start(); }
 
   function beep(){
@@ -145,8 +131,7 @@ window.FEVER7_CONFIG = {
 
   function paint(){
     var b=document.getElementById('bgmBtn'); if(!b)return;
-    var locked=on&&ac&&ac.state!=='running';
-    b.textContent=locked?'♪ 音樂 待解鎖':(on?'♪ 音樂 開':'♪ 音樂 關');
+    b.textContent=on?'♪ 音樂 開':'♪ 音樂 關';
     b.style.opacity=on?1:.55;
   }
 
@@ -170,15 +155,25 @@ window.FEVER7_CONFIG = {
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fn); else fn();
   }
   ready(function(){
-    console.log('[BGM] 已載入'); mount();
-    var started=false;
-    var id=setInterval(function(){
+    console.log('[BGM] 已載入（雙曲目版）');
+    mount();
+    var began=false;
+    setInterval(function(){
       mount();
       var h=document.getElementById('host');
-      if(!started&&h&&h.classList.contains('on')){started=true;if(AUTO)start();clearInterval(id);}
-    },400);
-    setTimeout(function(){clearInterval(id);},600000);
+      if(!h||!h.classList.contains('on'))return;
+      if(!began){began=true; if(AUTO)start();}
+      apply();
+    },500);
   });
 
-  window.FEVER7_BGM={start:start,stop:stop,toggle:toggle,build:build,mount:mount,beep:beep};
+  function status(){
+    var r={開啟:on,目前張數:slideNo(),應播:wanted(),實播:curKey,曲目:{}};
+    Object.keys(players).forEach(function(k){
+      r.曲目[k.split('/').pop()]={播放中:!players[k].paused,音量:+players[k].volume.toFixed(3)};
+    });
+    console.log(r); return r;
+  }
+
+  window.FEVER7_BGM={start:start,stop:stop,toggle:toggle,beep:beep,apply:apply,status:status};
 })();
