@@ -12,13 +12,11 @@ window.FEVER7_CONFIG = {
 
   // ---- 貼在這裡（從 Firebase 主控台複製） ----
   firebase: {
-    apiKey: "AIzaSyCzK_AgxfqJAKQSjolT7Uhrs0hPk28Gta8",
-  authDomain: "pneumonia-2871a.firebaseapp.com",
-  databaseURL: "https://pneumonia-2871a-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "pneumonia-2871a",
-  storageBucket: "pneumonia-2871a.firebasestorage.app",
-  messagingSenderId: "408250442550",
-  appId: "1:408250442550:web:18834ea90f02f6e4130997"
+    // apiKey: "AIza...",
+    // authDomain: "your-project.firebaseapp.com",
+    // databaseURL: "https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app",
+    // projectId: "your-project",
+    // appId: "1:123456789:web:abcdef"
   },
   // -------------------------------------------
 
