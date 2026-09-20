@@ -23,7 +23,7 @@ window.FEVER7_CONFIG = {
   // -------------------------------------------
 
   // 每題預設作答秒數（主持人畫面上可以隨時調整）
-  defaultSeconds: 30,
+  defaultSeconds: 20,
 
   // 每位參加者的起始 Trust 分數
   startTrust: 100,
