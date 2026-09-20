@@ -45,7 +45,7 @@ window.FEVER7_CONFIG = {
 /* ===== 背景音樂（只在主持人畫面播放） ===== */
 (function () {
   var BGM_URL = "";
-  var VOLUME  = 0.18;
+  var VOLUME  = 0.3;
   var AUTO    = true;
   var on=false, ac=null, master=null, el=null, nodes=[], waiting=false;
 
