@@ -1,16 +1,7 @@
-/* ============================================================
-   《發燒的第七天》互動遊戲 — 連線設定
-   ------------------------------------------------------------
-   把 Firebase 主控台給你的那段設定貼進下面的大括號裡，存檔即可。
-   步驟看「設定說明.md」。
-
-   還沒設定也沒關係：留白就會自動進入「示範模式」，
-   可以在同一台電腦開兩個分頁（一個主持、一個手機模擬）先試玩。
-   ============================================================ */
+/* 《發燒的第七天》互動遊戲 — 連線設定 */
 
 window.FEVER7_CONFIG = {
 
-  // ---- 貼在這裡（從 Firebase 主控台複製） ----
   firebase: {
     apiKey: "AIzaSyCzK_AgxfqJAKQSjolT7Uhrs0hPk28Gta8",
     authDomain: "pneumonia-2871a.firebaseapp.com",
@@ -21,15 +12,36 @@ window.FEVER7_CONFIG = {
     appId: "1:408250442550:web:18834ea90f02f6e4130997"
   },
 
-  // 每題預設作答秒數（主持人畫面右下角可隨時調整）
-  defaultSeconds: 30,
-
-  // 每位參加者的起始 Trust 分數
+  defaultSeconds: 20,
   startTrust: 100,
-
-  // 答對的速度獎勵上限（0 = 關閉）
   maxSpeedBonus: 0,
-
-  // 房間代碼長度
   pinLength: 4
 };
+
+
+/* ===== 主持人密碼 =====
+   把下面 PASS 改成你要的密碼。留 "" = 不設密碼。 */
+(function () {
+  var PASS = "10996";          // ← 改成你的密碼
+  if (!PASS) return;
+  var KEY = 'f7:host-ok';
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (document.getElementById('bootPass')) return;
+    var b = document.getElementById('bHost');
+    if (b) b.textContent = '主持人開新局 🔒';
+  });
+
+  document.addEventListener('click', function (e) {
+    if (document.getElementById('bootPass')) return;
+    var t = e.target;
+    var b = (t && t.closest) ? t.closest('#bHost') : null;
+    if (!b) return;
+    if (sessionStorage.getItem(KEY) === '1') return;
+    e.stopPropagation(); e.preventDefault();
+    var v = prompt('主持人密碼');
+    if (v === null) return;
+    if (v === PASS) { sessionStorage.setItem(KEY, '1'); b.click(); }
+    else alert('密碼不正確');
+  }, true);
+})();
