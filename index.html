@@ -342,11 +342,15 @@ input{font:inherit}
   const urlPin = (params.get('r') || '').trim();
 
   /* ================= 計分 ================= */
+  /* 0 也要能生效，所以不能用 || 5 */
+  const BONUS = () => (typeof CFG.maxSpeedBonus === 'number' ? CFG.maxSpeedBonus : 5);
+  const bonusOf = ratio => Math.round(BONUS() * Math.max(0, Math.min(1, ratio)));
+
   function scoreSingle(q, choice, ratio) {
     const o = q.options.find(x => x.k === choice);
     if (!o) return { delta: 0, verdict: 'bad' };
     let d = o.base;
-    if (d > 0) d += Math.round((CFG.maxSpeedBonus || 5) * Math.max(0, Math.min(1, ratio)));
+    if (d > 0) d += bonusOf(ratio);
     return { delta: d, verdict: o.verdict };
   }
   function scoreMulti(q, picks, ratio) {
@@ -357,7 +361,7 @@ input{font:inherit}
     const allReq = req.every(k => set.has(k));
     if (hitBad) return { delta: q.scoring.wrong, verdict: 'bad' };
     if (allReq) {
-      return { delta: q.scoring.full + Math.round((CFG.maxSpeedBonus || 5) * Math.max(0, Math.min(1, ratio))), verdict: 'best' };
+      return { delta: q.scoring.full + bonusOf(ratio), verdict: 'best' };
     }
     return { delta: q.scoring.partial, verdict: 'partial' };
   }
@@ -385,7 +389,21 @@ input{font:inherit}
     const base = location.origin + location.pathname;
     const joinUrl = base + '?r=' + pin;
     $('#joinUrl').textContent = joinUrl;
-    drawQR(joinUrl);
+
+    const isWeb = location.protocol === 'http:' || location.protocol === 'https:';
+    const isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[?::1\]?)$/i.test(location.hostname);
+    if (!isWeb) {
+      qrNote('⚠️ 這個頁面是用「直接開啟檔案」的方式打開的<br>' +
+             '（網址開頭是 <b>file://</b>）。<br><br>' +
+             '這種網址<b>手機掃了也連不到</b>。<br>' +
+             '請先把整個資料夾放到網路上<br>（GitHub Pages 等），再從 https 網址開啟。');
+    } else if (isLocal) {
+      qrNote('⚠️ 目前網址是 <b>' + location.hostname + '</b>，<br>' +
+             '只有這台電腦本身連得到。<br><br>' +
+             '手機掃了會失敗。正式上課請改用<br>對外可連線的 https 網址。');
+    } else {
+      drawQR(joinUrl);
+    }
 
     net.createRoom(pin, { phase: 'lobby', slide: 1, qid: null, startedAt: 0, seconds: CFG.defaultSeconds || 45 });
 
@@ -529,16 +547,30 @@ input{font:inherit}
     };
     $('#cLock').onclick = () => set({ phase: 'locked' });
     $('#cReveal').onclick = async () => {
-      const sl = cur(); const q = Q[sl.q]; if (!q) return;
-      const a = await net.getAnswers(pin, sl.q);
+      const sl = cur();
+      /* 以 state.qid 為準：主持人在作答中翻過投影片也不會算錯題 */
+      const qid = state.qid || sl.q;
+      const q = Q[qid]; if (!q) return;
+      const a = await net.getAnswers(pin, qid);
       const total = (state.seconds || 45) * 1000;
       for (const [pid, ans] of Object.entries(a || {})) {
         if (ans.scored) continue;
-        const ratio = Math.max(0, Math.min(1, 1 - ((ans.at - state.startedAt) / total)));
+        /* 速度比例：優先用學員裝置自己量的毫秒數，避免手機與電腦時鐘不同步 */
+        const elapsed = Number.isFinite(ans.ms) ? ans.ms : (ans.at - state.startedAt);
+        const ratio = Math.max(0, Math.min(1, 1 - (elapsed / total)));
         const r = scoreOf(q, ans.choice, ratio);
-        const cu = players[pid] || { trust: CFG.startTrust || 100 };
-        await net.updatePlayer(pin, pid, { trust: (cu.trust || 0) + r.delta, lastDelta: r.delta, lastVerdict: r.verdict });
-        await net.answer(pin, sl.q, pid, Object.assign({}, ans, { scored: true, delta: r.delta, verdict: r.verdict }));
+        const delta = Number.isFinite(r.delta) ? r.delta : 0;
+        /* 以資料庫上的分數為準，不用本機快取——晚加入或訂閱延遲時，
+           快取可能沒有這個人，舊版會把分數重設成 100，看起來就像「沒有計分」 */
+        let cu = players[pid];
+        if (!cu || !Number.isFinite(cu.trust)) {
+          try { cu = await net.rejoin(pin, pid); } catch (e) { cu = null; }
+        }
+        const before = (cu && Number.isFinite(cu.trust)) ? cu.trust : (CFG.startTrust || 100);
+        console.log('[計分]', (cu && cu.name) || pid, 'q=' + qid,
+          'choice=' + JSON.stringify(ans.choice), 'delta=' + delta, before + ' → ' + (before + delta));
+        await net.updatePlayer(pin, pid, { trust: before + delta, lastDelta: delta, lastVerdict: r.verdict });
+        await net.answer(pin, qid, pid, Object.assign({}, ans, { scored: true, delta: delta, verdict: r.verdict }));
       }
       /* 沒作答的人歸零 delta，排行榜才不會殘留上一題 */
       for (const [pid, p] of Object.entries(players)) {
@@ -570,6 +602,13 @@ input{font:inherit}
     });
   }
 
+  function qrNote(html) {
+    const w = document.querySelector('.qrwrap');
+    if (w) w.innerHTML = '<div style="color:#0a0d14;font:600 14.5px/1.7 system-ui,-apple-system,' +
+      '\'Noto Sans TC\',sans-serif;padding:16px 14px;width:min(42vh,330px);box-sizing:border-box;' +
+      'text-align:left">' + html + '</div>';
+  }
+
   function drawQR(url) {
     try {
       const q = qrcode(0, 'M'); q.addData(url); q.make();
@@ -581,8 +620,7 @@ input{font:inherit}
       for (let r = 0; r < n; r++) for (let col = 0; col < n; col++)
         if (q.isDark(r, col)) g.fillRect((col + pad) * px, (r + pad) * px, px, px);
     } catch (e) {
-      $('#qr').outerHTML = '<div style="color:#0a0d14;font-family:monospace;padding:20px;font-size:13px">' +
-        'QR 產生失敗，請用下方網址</div>';
+      qrNote('QR 產生失敗，請改用下方網址，<br>或請學員直接輸入房號加入。');
     }
   }
 
@@ -595,6 +633,8 @@ input{font:inherit}
        但同一台電腦另開分頁是不同的人（測試時才能模擬兩位學員）。 */
     const KEY = 'f7:' + pin;
     let pid = null, me = null, state = null, players = {}, myAns = null, tick = null;
+    /* 用本機時間量這一題的作答秒數，不依賴手機與主持人電腦的時鐘一致 */
+    let lastStarted = 0, qT0 = 0;
 
     const saved = sessionStorage.getItem(KEY);
     if (saved) { const p = await net.rejoin(pin, saved); if (p) { pid = saved; me = p; } }
@@ -615,6 +655,9 @@ input{font:inherit}
       if (ph === 'ask' || ph === 'locked') {
         const q = Q[state.qid];
         if (!q) return;
+        if (ph === 'ask' && state.startedAt && state.startedAt !== lastStarted) {
+          lastStarted = state.startedAt; qT0 = Date.now();
+        }
         if (body.dataset.q !== state.qid + ':' + ph) { body.dataset.q = state.qid + ':' + ph; drawQ(q, ph); }
         return;
       }
@@ -668,8 +711,9 @@ input{font:inherit}
     function msg(t) { const m = $('#pmsg'); if (m) m.textContent = t; }
 
     async function send(q, choice) {
-      myAns = { qid: state.qid, choice, at: Date.now() };
-      await net.answer(pin, state.qid, pid, { choice, at: myAns.at });
+      const ms = qT0 ? Math.max(0, Date.now() - qT0) : 0;
+      myAns = { qid: state.qid, choice, at: Date.now(), ms };
+      await net.answer(pin, state.qid, pid, { choice, at: myAns.at, ms });
       document.querySelectorAll('.opt').forEach(b => b.classList.add('locked'));
       const sub = $('#psub'); if (sub) sub.disabled = true;
       msg('已送出，等待公布');
@@ -680,8 +724,9 @@ input{font:inherit}
       stopT();
       const el = $('#pt'); if (!el) return;
       const total = state.seconds * 1000;
+      const t0 = qT0 || Date.now();
       const upd = () => {
-        const left = Math.max(0, state.startedAt + total - Date.now());
+        const left = Math.max(0, t0 + total - Date.now());
         const r = left / total;
         el.querySelector('i').style.width = (r * 100) + '%';
         el.classList.toggle('low', left <= 10000);
