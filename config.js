@@ -21,13 +21,13 @@ window.FEVER7_CONFIG = {
   // -------------------------------------------
 
   // 每題預設作答秒數（主持人畫面上可以隨時調整）
-  defaultSeconds: 20,
+  defaultSeconds: 45,
 
   // 每位參加者的起始 Trust 分數
   startTrust: 100,
 
   // 答對時最高可再加幾分的速度獎勵（越快答對加越多；答錯不扣更多）
-  maxSpeedBonus: 0,
+  maxSpeedBonus: 5,
 
   // 房間代碼長度（4 碼好念，適合口頭報給學員）
   pinLength: 4
