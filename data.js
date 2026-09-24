@@ -276,8 +276,8 @@ window.FEVER7_DATA = {
           why: '把革蘭氏陰性桿菌菌血症當污染忽略，是會出人命的錯誤。' },
         { k: 2, text: '要看菌種。Enterobacterales 應高度懷疑真正菌血症', verdict: 'best', base: 10,
           why: 'Enterobacterales、*Pseudomonas* 通常是真正菌血症；*S. aureus*、*S. pneumoniae*、*Candida* 通常有臨床意義；CoNS 常見污染但有導管／植入物須警覺。本例痰、血同菌種且臨床相符 → 支持真正感染。' },
-        { k: 3, text: '一定要再抽到陽性，才能判斷或開始治療', verdict: 'partial', base: -5,
-          why: '需要追蹤血培時就抽，但**不以「再一次陽性」作為治療門檻**——這樣會延誤治療調整。' }
+        { k: 3, text: '如果再抽到一次陽性再給予治療', verdict: 'partial', base: -5,
+          why: '需要追蹤血培時就抽，但**不以「再一次陽性」作為開始治療的門檻**——病人現在就在敗血狀態，等第二套只會延誤治療調整。' }
       ],
       refs: 'Hall KK, Lyman JA. Clin Microbiol Rev. 2006;19:788–802.'
     },
