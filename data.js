@@ -185,14 +185,14 @@ window.FEVER7_DATA = {
       slide: 25, verdictSlide: 26, multi: false,
       stem: '合格痰液檢體的判斷標準是', note: '老K 把抹片推過來',
       options: [
-        { k: 1, text: '只要從氣管內抽出來就算合格', verdict: 'bad', base: -10,
+        { k: 1, text: '氣管內管抽出來的就可以算合格', verdict: 'bad', base: -10,
           why: '氣管內抽吸仍可能反映定殖，採集位置不等於感染證據。' },
         { k: 2, text: '鱗狀上皮細胞 <10/LPF，多形核白血球 >25/LPF', verdict: 'best', base: 10,
           why: 'SEC <10/LPF 代表口咽污染較少；PMN >25/LPF 支持發炎性檢體。這是常用咳出痰判準之一，仍依檢驗室規範。' },
-        { k: 3, text: '只要有長出細菌就算合格', verdict: 'bad', base: -10,
-          why: '口水也會長菌，*Candida*、正常菌叢或定殖菌不能直接當病原。' },
-        { k: 4, text: '痰是黃綠色就算合格', verdict: 'bad', base: -10,
-          why: '顏色與嗜中性球酵素有關，不能單獨證明細菌感染。' }
+        { k: 3, text: '沒有上皮細胞且有細菌才算合格', verdict: 'bad', base: -10,
+          why: '判準是「污染指標少、發炎細胞多」，不是「完全沒有上皮細胞」——門檻是 <10/LPF 而非零。有沒有細菌是結果，不是檢體品質的條件。' },
+        { k: 4, text: '必須是濃痰才算合格', verdict: 'bad', base: -10,
+          why: '濃稠度與顏色反映嗜中性球與其酵素，不能單獨證明是合格檢體。清稀的痰也可能是好檢體，膿稠的痰也可能全是口水；*COPD* 病人的痰本來就常是黃綠濃稠的。' }
       ],
       refs: 'Murray PR, Washington JA. Mayo Clin Proc. 1975;50:339–344.'
     },
