@@ -365,9 +365,9 @@ window.FEVER7_DATA = {
           why: 'Ca、Mg、Fe、Zn 螯合會降低 FQ 吸收——藥有開卻等於沒給。' },
         { k: 2, text: '改 ciprofloxacin 經 NG 給藥，前後各停灌食 2 小時', verdict: 'ok', base: 5,
           why: '答對螯合，但尚未完成本題的加測流程。本例已知 *E. cloacae* 且 cipro S，並非無效；但須區分**病原已知的標的治療**與**病原未明的經驗治療**。' },
-        { k: 3, text: '請加測 levofloxacin，若 S 則評估 750 mg 療程，依腎功能調整間隔，NG 前後各停灌食 2 小時', verdict: 'best', base: 10,
+        { k: 3, text: '請加測 levofloxacin，若 S 則評估 750 mg 療程，NG 前後各停灌食 2 小時', verdict: 'best', base: 10,
           why: '選定藥物要先確認 S，**不能自行由 cipro 的 S 推定**。NG 給藥前後各停灌食 2 小時，並核對劑型與腎功能（CrCl ≥50：750 mg q24h；20–49：750 mg q48h）。' },
-        { k: 4, text: '不行，所有菌血症都必須打滿靜脈療程', verdict: 'bad', base: -10,
+        { k: 4, text: '菌血症的治療都應該以靜脈注射治療完成療程', verdict: 'bad', base: -10,
           why: '過時。穩定、感染源已控制且有適用口服藥時可以轉換。（本例療程已近尾聲，繼續 IV 完成也合理。）' }
       ],
       refs: 'IDSA AMR 2026；NHS SPS 2025；Tamma 2019；LEVAQUIN label.'
