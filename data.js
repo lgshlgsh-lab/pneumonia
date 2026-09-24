@@ -158,7 +158,7 @@ window.FEVER7_DATA = {
           why: '先整合床邊評估與 CXR，依診斷疑慮或併發症再安排 CT。' }
       ],
       scoring: { full: 10, partial: 5, wrong: -10 },
-      summary: '◎ 1 ＋ 2 ＋ 4 ＋ 基本檢驗（+10）　△ 3 依臨床指徵　△ 5 PCT 非必需　✕ 6、7',
+      summary: '◎ 1＋2＋4＋5 選齊且未踩 6、7 → +10　△ 3、5 為 0 分　✕ 踩到 6 或 7 → −10（即使其他都選對）',
       refs: 'Lee A, et al. J Clin Microbiol. 2007;45:3546–3548.　SCCM/IDSA New Fever Guideline. 2023.'
     },
 
