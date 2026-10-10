@@ -311,6 +311,7 @@ input{font:inherit}
     <button class="btn solid" id="cReveal">公布答案</button>
     <button class="btn" id="cRank">隱藏排行</button>
     <button class="btn" id="cFinal">最終成績</button>
+    <button class="btn" id="cCsv" title="下載本場成績與逐題統計">匯出 CSV</button>
   </div>
 </div>
 
@@ -627,6 +628,87 @@ input{font:inherit}
       $('#cRank').textContent = rankOpen ? '隱藏排行' : '顯示排行';
     };
     $('#cFinal').onclick = () => set({ phase: 'final' });
+
+    /* ---------- 匯出 CSV ---------- */
+    const plain = s => String(s == null ? '' : s).replace(/\*\*/g, '').replace(/\*/g, '');
+    const csvCell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const csvRow = a => a.map(csvCell).join(',');
+
+    $('#cCsv').onclick = async () => {
+      const btn = $('#cCsv'); const label = btn.textContent;
+      btn.disabled = true; btn.textContent = '匯出中…';
+      try {
+        const qids = Object.keys(Q);
+        const ans = {};
+        for (const qid of qids) ans[qid] = (await net.getAnswers(pin, qid)) || {};
+
+        const roster = rank(players);               // 依分數排序
+        const lines = [];
+        const stamp = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const ts = stamp.getFullYear() + pad(stamp.getMonth() + 1) + pad(stamp.getDate())
+                 + '_' + pad(stamp.getHours()) + pad(stamp.getMinutes());
+
+        lines.push(csvRow(['發燒的第七天 · 作答紀錄']));
+        lines.push(csvRow(['房號', pin, '匯出時間', stamp.toLocaleString('zh-TW'),
+                           '人數', roster.length, '題數', qids.length]));
+        lines.push('');
+
+        /* --- 區塊一：每人成績 --- */
+        const head = ['名次', '暱稱', '最終分數', '◎ 答對', '✕ 答錯', '未作答'];
+        qids.forEach(qid => { head.push(qid + ' 選項'); head.push(qid + ' 得分'); });
+        lines.push(csvRow(['【學員成績】']));
+        lines.push(csvRow(head));
+
+        roster.forEach((p, i) => {
+          let best = 0, bad = 0, none = 0;
+          const cells = [];
+          qids.forEach(qid => {
+            const a = ans[qid][p.id];
+            if (!a) { none++; cells.push('—', ''); return; }
+            if (a.verdict === 'best') best++;
+            if (a.verdict === 'bad') bad++;
+            const pick = Array.isArray(a.choice) ? a.choice.slice().sort((x, y) => x - y).join('+') : a.choice;
+            cells.push(pick, (typeof a.delta === 'number' ? a.delta : ''));
+          });
+          lines.push(csvRow([i + 1, p.name, p.trust, best, bad, none].concat(cells)));
+        });
+
+        lines.push('');
+        /* --- 區塊二：逐題統計 --- */
+        lines.push(csvRow(['【逐題統計】']));
+        lines.push(csvRow(['題號', '投影片', '題目', '選項', '選項文字', '判定', '配分', '人數', '百分比']));
+        qids.forEach(qid => {
+          const q = Q[qid];
+          const picked = Object.values(ans[qid] || {});
+          const tot = picked.length;
+          q.options.forEach(o => {
+            const n = picked.filter(a => Array.isArray(a.choice)
+              ? a.choice.indexOf(o.k) >= 0 : a.choice === o.k).length;
+            const mark = o.role
+              ? ({ required: '◎ 必選', neutral: '△ 中性', wrong: '✕ 錯誤' })[o.role]
+              : ({ best: '◎ 最佳', ok: '○ 可接受', partial: '△ 部分', bad: '✕ 錯誤' })[o.verdict] || '';
+            const base = q.multi ? '' : (typeof o.base === 'number' ? o.base : '');
+            lines.push(csvRow([qid, q.slide, plain(q.stem), o.k, plain(o.text), mark, base,
+                               n, tot ? (Math.round(n / tot * 1000) / 10) + '%' : '']));
+          });
+          lines.push(csvRow([qid, q.slide, plain(q.stem), '（作答人數）', '', '', '', tot, '']));
+        });
+
+        const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `fever7_${pin}_${ts}.csv`;   /* 檔名用 ASCII，避免某些瀏覽器／系統亂碼 */
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+        console.log('[匯出] 完成：' + roster.length + ' 人 × ' + qids.length + ' 題');
+      } catch (e) {
+        console.error('[匯出] 失敗', e);
+        alert('匯出失敗：' + e.message);
+      } finally {
+        btn.disabled = false; btn.textContent = label;
+      }
+    };
     $('#hToggleJoin').onclick = () => set({ phase: state.phase === 'lobby' ? 'show' : 'lobby' });
     $('#hFull').onclick = () => document.fullscreenElement
       ? document.exitFullscreen() : document.documentElement.requestFullscreen();
