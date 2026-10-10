@@ -213,6 +213,19 @@ input{font:inherit}
       <div class="b-note" id="modeNote"></div>
     </div>
 
+    <div id="bootPass" class="hide">
+      <div class="b-sub" style="margin-top:18px">主持人密碼</div>
+      <div class="pinbox" style="margin-top:12px">
+        <input id="inPass" type="password" style="letter-spacing:.15em;font-size:20px"
+               autocomplete="current-password" placeholder="••••••">
+      </div>
+      <div class="err" id="passErr"></div>
+      <div class="b-row">
+        <button class="btn solid lg" id="bDoPass">進入主持人畫面</button>
+        <button class="btn" id="bPassBack">返回</button>
+      </div>
+    </div>
+
     <div id="bootJoin" class="hide">
       <div class="pinbox"><input id="inPin" inputmode="numeric" autocomplete="off" placeholder="0000" maxlength="6"></div>
       <div class="pinbox" style="margin-top:10px">
@@ -282,6 +295,11 @@ input{font:inherit}
   <div class="hctl">
     <button class="btn" id="cPrev">← 上一張</button>
     <button class="btn" id="cNext">下一張 →</button>
+    <label class="chip" style="display:flex;align-items:center;gap:6px" title="輸入張數後按 Enter（快捷鍵 G）">跳到
+      <input id="cJump" type="number" min="1" inputmode="numeric" placeholder="—"
+             style="width:62px;background:#0b0f16;border:1px solid rgba(201,162,39,.35);color:var(--brass-lt);
+                    border-radius:4px;padding:3px 6px;font-family:var(--mono);text-align:center">頁
+      <button class="btn" id="cJumpGo" style="padding:4px 12px;font-size:13px">跳</button></label>
     <div class="slidelabel" id="cLabel"></div>
     <div class="grow"></div>
     <label class="chip" style="display:flex;align-items:center;gap:6px">秒數
@@ -337,6 +355,8 @@ input{font:inherit}
   $('#modeNote').textContent = net.mode === 'firebase'
     ? '已連上 Firebase，參加者可用手機掃碼加入'
     : '示範模式：尚未設定 Firebase。可在同一台電腦另開分頁測試，正式上課請先完成設定。';
+
+  if (CFG.hostPass || CFG.hostPassHash) $('#bHost').textContent = '主持人開新局 🔒';
 
   const params = new URLSearchParams(location.search);
   const urlPin = (params.get('r') || '').trim();
@@ -420,7 +440,9 @@ input{font:inherit}
     net.watchState(pin, s => { if (s) { state = s; paint(); } });
 
     function set(patch) { return net.setState(pin, patch); }
-        function cur() { return SLIDES.find(x => x.n === (state ? state.slide : 1)) || SLIDES[0]; }
+    /* 用 function 宣告（會被提升）：Firebase 的 watchState 有可能在這一行
+       執行之前就同步觸發第一次回呼，寫成 const 會踩到 TDZ。 */
+    function cur() { return SLIDES.find(x => x.n === (state ? state.slide : 1)) || SLIDES[0]; }
 
     function paint() {
       const sl = cur();
@@ -540,6 +562,27 @@ input{font:inherit}
       if (state.slide >= LAST) { set({ phase: 'final' }); return; }
       go(state.slide + 1);
     };
+
+    /* --- 跳頁 --- */
+    $('#cJump').max = LAST;
+    function jump() {
+      const el = $('#cJump');
+      let n = parseInt(el.value, 10);
+      if (!Number.isFinite(n)) { el.focus(); el.select(); return; }
+      n = Math.max(1, Math.min(LAST, n));
+      /* 找最接近的存在張數，避免輸入到缺號時沒反應 */
+      if (!SLIDES.find(x => x.n === n)) {
+        n = SLIDES.reduce((a, b) => Math.abs(b.n - n) < Math.abs(a.n - n) ? b : a).n;
+      }
+      go(n);
+      el.value = '';
+      el.blur();
+    }
+    $('#cJumpGo').onclick = jump;
+    $('#cJump').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); jump(); }
+      if (e.key === 'Escape') { e.target.value = ''; e.target.blur(); }
+    });
     $('#cAsk').onclick = () => {
       const sl = cur(); if (sl.type !== 'ask') return;
       const sec = Math.max(10, Math.min(180, +$('#cSec').value || 45));
@@ -599,6 +642,7 @@ input{font:inherit}
         else $('#cNext').click();
       }
       if (e.key === 'f' || e.key === 'F') $('#hFull').click();
+      if (e.key === 'g' || e.key === 'G') { e.preventDefault(); $('#cJump').focus(); $('#cJump').select(); }
     });
   }
 
@@ -792,8 +836,58 @@ input{font:inherit}
       .replace(/\*([^*]+)\*/g, '<i>$1</i>');
   }
 
+  /* ================= 主持人密碼 =================
+     這是「課堂用的門閂」，不是資安機制：網頁是公開的，
+     設定檔任何人都讀得到。它擋的是學員好奇亂按，不是刻意破解。 */
+  const HOST_KEY = 'f7:host-ok';
+
+  async function sha256hex(s) {
+    if (!(window.crypto && crypto.subtle)) return null;   // file:// 之類的非安全環境沒有
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  window.sha256 = sha256hex;   // 需要產生雜湊時，在主控台執行：await sha256('你的密碼')
+
+  const hostGated = () => !!(CFG.hostPass || CFG.hostPassHash);
+
+  async function passOK(input) {
+    if (CFG.hostPassHash) {
+      const h = await sha256hex(input);
+      if (h) return h.toLowerCase() === String(CFG.hostPassHash).trim().toLowerCase();
+      return CFG.hostPass ? input === CFG.hostPass : false;
+    }
+    return input === CFG.hostPass;
+  }
+
+  function openHost() {
+    if (!hostGated() || sessionStorage.getItem(HOST_KEY) === '1') { startHost(); return; }
+    $('#bootRole').classList.add('hide');
+    $('#bootPass').classList.remove('hide');
+    $('#passErr').textContent = '';
+    $('#inPass').value = '';
+    setTimeout(() => $('#inPass').focus(), 60);
+  }
+
+  async function tryPass() {
+    const err = $('#passErr');
+    const v = $('#inPass').value;
+    if (!v) { err.textContent = '請輸入密碼'; return; }
+    if (await passOK(v)) {
+      sessionStorage.setItem(HOST_KEY, '1');   // 同一分頁重新整理不用再輸入
+      $('#bootPass').classList.add('hide');
+      startHost();
+    } else {
+      err.textContent = '密碼不正確';
+      $('#inPass').value = '';
+      $('#inPass').focus();
+    }
+  }
+
   /* ================= 開場流程 ================= */
-  $('#bHost').onclick = startHost;
+  $('#bHost').onclick = openHost;
+  $('#bDoPass').onclick = tryPass;
+  $('#inPass').addEventListener('keydown', e => { if (e.key === 'Enter') tryPass(); });
+  $('#bPassBack').onclick = () => { $('#bootPass').classList.add('hide'); $('#bootRole').classList.remove('hide'); };
   $('#bJoin').onclick = () => { $('#bootRole').classList.add('hide'); $('#bootJoin').classList.remove('hide'); $('#inPin').focus(); };
   $('#bBack').onclick = () => { $('#bootJoin').classList.add('hide'); $('#bootRole').classList.remove('hide'); };
   $('#bDoJoin').onclick = doJoin;
