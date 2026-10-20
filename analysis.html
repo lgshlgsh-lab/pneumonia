@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>發燒的第七天 · 跨梯次分析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* 版面：單欄報表。頂部固定工具列 → 摘要數字 → 前後測 → 題目分析 → 名單 */
+:root{
+  --plane:#f9f9f7; --surface:#fcfcfb; --raise:#ffffff;
+  --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --rule:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --accent:#256abf; --accent-soft:#e8f0fb;
+  --pre:#86b6ef; --post:#256abf;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-ink:#006300;
+  --font-ui:"IBM Plex Sans","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --plane:#0d0d0d; --surface:#1a1a19; --raise:#232320;
+  --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+  --rule:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --accent:#3987e5; --accent-soft:#16283f;
+  --pre:#1c5cab; --post:#6da7ec;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-ink:#0ca30c;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --plane:#0d0d0d; --surface:#1a1a19; --raise:#232320;
+  --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+  --rule:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --accent:#3987e5; --accent-soft:#16283f;
+  --pre:#1c5cab; --post:#6da7ec;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-ink:#0ca30c;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--plane);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.6}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));
+      padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+h1,h2,h3{text-wrap:balance;margin:0}
+h1{font-size:21px;font-weight:600;letter-spacing:-.01em}
+h2{font-size:17px;font-weight:600;margin-bottom:4px}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.sub{color:var(--ink2);font-size:13.5px}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+
+/* 頂部 */
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--surface);
+       border-bottom:1px solid var(--rule)}
+.hbar{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));
+      padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px;
+      display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.hbar .grow{flex:1 1 auto;min-width:0}
+
+button{font:inherit;color:inherit;cursor:pointer;border-radius:7px;border:1px solid var(--ring);
+       background:var(--raise);padding:7px 14px}
+button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:500}
+button.primary:hover:not(:disabled){filter:brightness(1.08);color:#fff}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 檔案區 */
+.drop{border:1.5px dashed var(--axis);border-radius:10px;background:var(--surface);
+      padding:22px 18px;text-align:center;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 6px 4px 11px;
+      border-radius:999px;background:var(--accent-soft);color:var(--accent);border:1px solid var(--ring)}
+.chip b{font-family:var(--font-num);font-weight:600}
+.chip button{border:0;background:none;padding:0 6px;font-size:15px;line-height:1;color:inherit;border-radius:50%}
+
+.banner{display:flex;gap:10px;align-items:flex-start;border-radius:8px;padding:11px 14px;font-size:13.5px;
+        background:var(--accent-soft);border:1px solid var(--ring);color:var(--ink2)}
+.banner strong{color:var(--ink)}
+
+section{margin-top:40px}
+.shead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;
+       padding-bottom:8px;border-bottom:1px solid var(--rule);margin-bottom:18px}
+
+/* 數字磚 */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+      background:var(--rule);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px}
+.kpi .k{font-size:11.5px;color:var(--muted);letter-spacing:.04em}
+.kpi .v{font-family:var(--font-num);font-size:27px;font-weight:600;line-height:1.25;margin-top:2px}
+.kpi .d{font-size:12px;color:var(--ink2)}
+.up{color:var(--good-ink)} .down{color:var(--crit)}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.05em;color:var(--muted);font-weight:600;white-space:nowrap}
+td.n,th.n{text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:hover{background:var(--accent-soft)}
+.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:10px;background:var(--surface)}
+.scroll table{min-width:680px}
+.scroll th,.scroll td.n,.scroll td.num,.scroll td.nw{white-space:nowrap}
+.scroll th{position:sticky;top:0;background:var(--surface)}
+
+/* 圖 */
+.chartbox{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 14px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-bottom:10px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+svg{display:block;width:100%;height:auto;max-width:100%}
+#tip{position:fixed;z-index:50;pointer-events:none;background:var(--raise);color:var(--ink);
+     border:1px solid var(--ring);border-radius:7px;padding:7px 10px;font-size:12.5px;
+     box-shadow:0 6px 20px rgba(0,0,0,.14);max-width:260px}
+#tip[hidden]{display:none}
+[hidden]{display:none!important}
+
+/* 條 */
+.bar{position:relative;height:17px;border-radius:0 4px 4px 0;background:var(--axis);min-width:2px}
+.bar.hit{background:var(--post)}
+.bar.miss{background:var(--axis)}
+.bar.flag{background:var(--crit)}
+.barwrap{display:flex;align-items:center;gap:9px}
+.barwrap .lab{flex:0 0 46px;text-align:right;font-family:var(--font-num);font-size:12.5px;color:var(--ink2)}
+.bartrack{flex:1 1 auto;min-width:0;background:var(--rule);border-radius:0 4px 4px 0}
+
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;
+      border:1px solid var(--ring);white-space:nowrap}
+.pill.good{color:var(--good-ink);border-color:var(--good)}
+.pill.warn{color:var(--ink);border-color:var(--warn);background:rgba(250,178,25,.14)}
+.pill.crit{color:var(--crit);border-color:var(--crit)}
+
+details{border:1px solid var(--rule);border-radius:10px;background:var(--surface);margin-top:10px}
+summary{cursor:pointer;padding:11px 14px;font-size:13.5px;font-weight:500;list-style:none;
+        display:flex;justify-content:space-between;gap:10px;align-items:center}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"＋";color:var(--muted);font-family:var(--font-num)}
+details[open] summary::after{content:"−"}
+.dbody{padding:0 14px 14px;display:grid;gap:7px}
+
+.empty{color:var(--muted);font-size:13.5px;padding:18px;text-align:center}
+textarea{width:100%;min-height:140px;font-family:var(--font-num);font-size:12px;border-radius:8px;
+         border:1px solid var(--rule);background:var(--surface);color:var(--ink);padding:10px}
+footer{margin-top:52px;padding-top:16px;border-top:1px solid var(--rule);color:var(--muted);font-size:12.5px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbar">
+    <div class="grow">
+      <div class="eyebrow">發燒的第七天</div>
+      <h1>跨梯次分析</h1>
+    </div>
+    <button id="pick">選擇 CSV…</button>
+    <button id="copy">複製合併 CSV</button>
+    <button id="dl" class="primary">下載合併 CSV</button>
+    <input id="file" type="file" accept=".csv,text/csv" multiple hidden>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section style="margin-top:22px">
+    <div class="drop" id="drop">
+      <div style="font-size:14.5px">把一場或多場的 <b>匯出 CSV</b> 拖進來</div>
+      <div class="sub" style="margin-top:4px">檔名像 <span class="num">fever7_0629_20261020_1540.csv</span>，可一次選多個</div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div id="sampleNote" class="banner" style="margin-top:14px">
+      <span>ⓘ</span><div>目前顯示的是<strong>範例資料</strong>（兩個虛構梯次），用來示意報表長相。拖入真實檔案後會整個換掉。</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="shead"><div><h2>總覽</h2><div class="sub" id="ovSub"></div></div></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="scroll" style="margin-top:14px"><table id="cohortTbl"></table></div>
+  </section>
+
+  <section id="secTest">
+    <div class="shead">
+      <div><h2>前後測：逐題進步</h2>
+      <div class="sub">合併所有梯次。右端越靠右表示後測正確率越高。</div></div>
+    </div>
+    <div class="chartbox">
+      <div class="legend">
+        <span><i style="background:var(--pre)"></i>前測</span>
+        <span><i style="background:var(--post)"></i>後測</span>
+      </div>
+      <div id="dumbbell"></div>
+    </div>
+    <div class="scroll" style="margin-top:14px"><table id="itemTbl"></table></div>
+    <div class="sub" style="margin-top:10px">
+      <b>鑑別度 D</b>＝後測總分前 27% 的答對率 − 後 27% 的答對率。D ≥ 0.40 佳、0.30–0.39 尚可、0.20–0.29 需修改、&lt; 0.20 差。
+      人數少於 8 人時不計算。
+    </div>
+  </section>
+
+  <section id="secGame">
+    <div class="shead">
+      <div><h2>課堂遊戲：最常踩的陷阱</h2>
+      <div class="sub">合併所有梯次，依被選比例排序。這些是課堂上最該停下來講的地方。</div></div>
+    </div>
+    <div class="scroll"><table id="trapTbl"></table></div>
+    <div id="qdetail" style="margin-top:16px"></div>
+  </section>
+
+  <section id="secRoster">
+    <div class="shead"><div><h2>學員名單</h2><div class="sub" id="rosterSub"></div></div></div>
+    <div class="scroll"><table id="rosterTbl"></table></div>
+  </section>
+
+  <section id="secCsv" hidden>
+    <div class="shead"><div><h2>合併 CSV</h2><div class="sub">全選後複製，貼進 Excel 或存成 .csv</div></div></div>
+    <textarea id="csvOut" readonly></textarea>
+  </section>
+
+  <footer>
+    標準化增益 <span class="num">&lt;g&gt; = (後測 − 前測) ÷ (滿分 − 前測)</span>。
+    班級 <span class="num">&lt;g&gt;</span> 用全班平均計算，個人 <span class="num">&lt;g&gt;</span> 是每個人各算一次再平均；
+    前測已滿分者不列入個人平均。所有運算都在你的瀏覽器裡完成，資料不會上傳。
+  </footer>
+</div>
+
+<div id="tip" hidden></div>
+
+<script>
+/* ============ CSV 解析 ============ */
+function parseCSV(text){
+  text = text.replace(/^﻿/, '');
+  const rows=[]; let row=[], cell='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; }
+      else cell+=c;
+    } else if(c==='"') q=true;
+    else if(c===','){ row.push(cell); cell=''; }
+    else if(c==='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
+    else if(c==='\r'){ /* skip */ }
+    else cell+=c;
+  }
+  if(cell.length||row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+const BLOCKS=['學員成績','逐題統計','前後測成績','前後測逐題正確率','前後測作答明細'];
+function splitBlocks(rows){
+  const out={}; let cur=null;
+  rows.forEach(r=>{
+    const first=(r[0]||'').trim();
+    const m=/^【(.+)】$/.exec(first);
+    if(m){ cur=m[1]; out[cur]=[]; return; }
+    if(cur && r.some(c=>(c||'').trim()!=='')) out[cur].push(r);
+  });
+  return out;
+}
+function asObjects(block){
+  if(!block||!block.length) return [];
+  const head=block[0].map(h=>(h||'').trim());
+  return block.slice(1).map(r=>{
+    const o={}; head.forEach((h,i)=>o[h]=(r[i]||'').trim()); return o;
+  });
+}
+const numOr=(v,d)=>{ const n=parseFloat(String(v).replace('%','')); return Number.isFinite(n)?n:d; };
+
+function parseCohort(text, filename){
+  const rows=parseCSV(text);
+  const meta=rows.find(r=>(r[0]||'').trim()==='房號')||[];
+  const pin=meta[1]||'', time=meta[3]||'';
+  const B=splitBlocks(rows);
+  const students=asObjects(B['學員成績']).map(o=>({
+    name:o['暱稱'], score:numOr(o['最終分數'],null),
+    best:numOr(o['◎ 答對'],0), bad:numOr(o['✕ 答錯'],0)
+  })).filter(s=>s.name);
+  const game=[];
+  asObjects(B['逐題統計']).forEach(o=>{
+    if(o['選項']==='（作答人數）'){
+      const g=game.find(x=>x.qid===o['題號']); if(g) g.total=numOr(o['人數'],0); return;
+    }
+    let g=game.find(x=>x.qid===o['題號']);
+    if(!g){ g={qid:o['題號'],slide:o['投影片'],stem:o['題目'],opts:[],total:0}; game.push(g); }
+    g.opts.push({k:o['選項'],text:o['選項文字'],mark:o['判定'],n:numOr(o['人數'],0)});
+  });
+  const key=asObjects(B['前後測逐題正確率']).map(o=>({
+    id:o['題號'], ch:o['章節'], stem:o['題幹'],
+    ans:numOr(o['正解'],null), ansText:o['正解內容']
+  }));
+  const detail=asObjects(B['前後測作答明細']);
+  const tKeys=detail.length?Object.keys(detail[0]).filter(k=>/^T\d+$/.test(k)):key.map(k=>k.id);
+  const pre=[],post=[];
+  detail.forEach(o=>{
+    const rec={name:o['暱稱'],score:numOr(o['得分'],0),ans:{}};
+    tKeys.forEach(t=>{ const v=numOr(o[t],null); if(v!==null) rec.ans[t]=v; });
+    (o['場次']==='後測'?post:pre).push(rec);
+  });
+  const prepost=asObjects(B['前後測成績']).map(o=>({
+    name:o['暱稱'], pre:numOr(o['前測'],null), post:numOr(o['後測'],null),
+    preSec:numOr(o['前測秒數'],null), postSec:numOr(o['後測秒數'],null)
+  })).filter(x=>x.name);
+  return {label:(pin?('房號 '+pin):filename.replace(/\.csv$/i,'')), pin, time,
+          file:filename, students, game, key, tKeys, pre, post, prepost};
+}
+
+/* ============ 範例資料 ============ */
+function sampleCohorts(){
+  const key=[
+    ['T1','第一章','發燒合併低血氧的第一步',1],['T2','第一章','血液培養兩套的意義',3],
+    ['T3','第二章','合格痰液檢體的判準',2],['T4','第二章','CAP／HAP／VAP 分類',4],
+    ['T5','第三章','MDR HAP 的風險因子',1],['T6','第三章','MRSA 涵蓋的判斷依據',3],
+    ['T7','第四章','antibiogram 的分母陷阱',4],['T8','第五章','inducible AmpC',2],
+    ['T9','第五章','MIC 與藥敏推定',1],['T10','第六章','療程長度與停藥依據',3]
+  ].map(a=>({id:a[0],ch:a[1],stem:a[2],ans:a[3],ansText:''}));
+  const tKeys=key.map(k=>k.id);
+  const hard={T5:.25,T7:.2,T9:.3,T8:.4};
+  function cohort(label,pin,n,base,lift,seed){
+    let s=seed; const rnd=()=>(s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff;
+    const pre=[],post=[],prepost=[],students=[];
+    for(let i=0;i<n;i++){
+      const nm='學員 '+String.fromCharCode(65+i);
+      const mk=(bonus)=>{
+        const a={}; let sc=0;
+        key.forEach(k=>{
+          const p=Math.min(.96,(hard[k.id]??base)+bonus+rnd()*.18-.09);
+          const ok=rnd()<p;
+          a[k.id]= ok?k.ans:(k.ans%4)+1; if(ok) sc++;
+        });
+        return {a,sc};
+      };
+      const A=mk(0), B=mk(lift);
+      pre.push({name:nm,score:A.sc,ans:A.a});
+      post.push({name:nm,score:B.sc,ans:B.a});
+      prepost.push({name:nm,pre:A.sc,post:B.sc,preSec:Math.round(60+rnd()*90),postSec:Math.round(50+rnd()*80)});
+      students.push({name:nm,score:Math.round(60+rnd()*110),best:Math.round(6+rnd()*7),bad:Math.round(rnd()*5)});
+    }
+    const game=[
+      {qid:'q6',slide:'34',stem:'哪些線索支持 MDR／特定病原風險？（複選）',total:n,opts:[
+        {k:'1',text:'住院已 ≥5 天',mark:'△ 中性',n:Math.round(n*.82)},
+        {k:'2',text:'4 個月前曾 IV 使用 piperacillin-tazobactam',mark:'✕ 錯誤',n:Math.round(n*.55)},
+        {k:'3',text:'COPD 病史',mark:'◎ 必選',n:Math.round(n*.74)},
+        {k:'4',text:'鼻胃管留置、吞嚥困難',mark:'△ 中性',n:Math.round(n*.48)},
+        {k:'5',text:'糖尿病，HbA1c 7.8%',mark:'✕ 錯誤',n:Math.round(n*.30)},
+        {k:'6',text:'目前有敗血性休克',mark:'✕ 錯誤',n:Math.round(n*.06)}]},
+      {qid:'q10',slide:'58',stem:'⚔️ BOSS：如何改藥',total:n,opts:[
+        {k:'1',text:'降階為 ceftriaxone',mark:'✕ 錯誤',n:Math.round(n*.47)},
+        {k:'2',text:'改用 cefepime',mark:'◎ 最佳',n:Math.round(n*.38)},
+        {k:'3',text:'直接上 meropenem',mark:'○ 可接受',n:Math.round(n*.12)},
+        {k:'4',text:'維持 TZP 不動',mark:'✕ 錯誤',n:Math.round(n*.03)}]},
+      {qid:'q11',slide:'66',stem:'MIC 小，就比較強？',total:n,opts:[
+        {k:'1',text:'Ceftriaxone MIC 1 比 cefepime MIC 2 更強',mark:'✕ 錯誤',n:Math.round(n*.41)},
+        {k:'2',text:'Meropenem MIC ≤0.25，治療一定最好',mark:'✕ 錯誤',n:Math.round(n*.18)},
+        {k:'3',text:'不同藥物不能直接比 MIC',mark:'◎ 最佳',n:Math.round(n*.41)}]}
+    ];
+    return {label,pin,time:'範例',file:'範例',students,game,key,tKeys,pre,post,prepost,sample:true};
+  }
+  return [cohort('範例梯次 1','—',12,.44,.26,7),cohort('範例梯次 2','—',10,.40,.31,91)];
+}
+
+/* ============ 彙整 ============ */
+let cohorts=[], isSample=true;
+
+function pooled(){
+  const key = cohorts.find(c=>c.key && c.key.length)?.key || [];
+  const pre=[].concat(...cohorts.map(c=>c.pre));
+  const post=[].concat(...cohorts.map(c=>c.post));
+  const items=key.map(k=>{
+    const hit=arr=>arr.filter(r=>r.ans[k.id]===k.ans).length;
+    const pn=pre.length,qn=post.length;
+    const pc=hit(pre),qc=hit(post);
+    return {...k, preN:pn, preC:pc, preP:pn?pc/pn:null,
+                  postN:qn, postC:qc, postP:qn?qc/qn:null,
+                  D:discrim(post,k)};
+  });
+  return {key,pre,post,items};
+}
+function discrim(arr,k){
+  if(arr.length<8) return null;
+  const s=[...arr].sort((a,b)=>b.score-a.score);
+  const g=Math.max(1,Math.round(s.length*0.27));
+  const up=s.slice(0,g), lo=s.slice(-g);
+  const r=x=>x.filter(v=>v.ans[k.id]===k.ans).length/x.length;
+  return r(up)-r(lo);
+}
+const pct=v=>v===null||v===undefined?'—':(Math.round(v*1000)/10).toFixed(1)+'%';
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+const f1=v=>v===null||v===undefined?'—':(Math.round(v*10)/10).toFixed(1);
+const f2=v=>v===null||v===undefined?'—':(Math.round(v*100)/100).toFixed(2);
+
+function cohortStats(c){
+  const max=c.key.length||10;
+  const pre=c.prepost.filter(x=>x.pre!==null).map(x=>x.pre);
+  const post=c.prepost.filter(x=>x.post!==null).map(x=>x.post);
+  const paired=c.prepost.filter(x=>x.pre!==null&&x.post!==null);
+  const indiv=paired.filter(x=>x.pre<max).map(x=>(x.post-x.pre)/(max-x.pre));
+  const ap=avg(pre), aq=avg(post);
+  return {n:Math.max(c.students.length,c.prepost.length), max,
+    game:avg(c.students.map(s=>s.score).filter(v=>v!==null)),
+    pre:ap, post:aq, paired:paired.length,
+    classG:(ap!==null&&aq!==null&&max>ap)?(aq-ap)/(max-ap):null,
+    indivG:avg(indiv)};
+}
+
+/* ============ 繪圖 ============ */
+const tip=document.getElementById('tip');
+function showTip(e,html){ tip.innerHTML=html; tip.hidden=false;
+  const r=tip.getBoundingClientRect();
+  let x=e.clientX+14, y=e.clientY+14;
+  if(x+r.width>innerWidth-8) x=e.clientX-r.width-14;
+  if(y+r.height>innerHeight-8) y=e.clientY-r.height-14;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+}
+function hideTip(){ tip.hidden=true; }
+
+function drawDumbbell(items){
+  const box=document.getElementById('dumbbell');
+  if(!items.length){ box.innerHTML='<div class="empty">沒有前後測資料</div>'; return; }
+  const rowH=34, padT=26, padB=24, L=132, R=56, W=720;
+  const H=padT+items.length*rowH+padB;
+  const x=v=>L+v*(W-L-R);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="前後測逐題正確率">`;
+  for(let g=0;g<=4;g++){
+    const gx=x(g/4);
+    s+=`<line x1="${gx}" y1="${padT-12}" x2="${gx}" y2="${H-padB+4}" stroke="var(--rule)" stroke-width="1"/>`;
+    s+=`<text x="${gx}" y="${padT-18}" fill="var(--muted)" font-size="10.5" text-anchor="middle"
+         font-family="var(--font-num)">${g*25}%</text>`;
+  }
+  items.forEach((it,i)=>{
+    const y=padT+i*rowH+rowH/2;
+    const a=it.preP, b=it.postP;
+    s+=`<text x="0" y="${y+4}" fill="var(--ink2)" font-size="12">${esc(it.id)}</text>`;
+    s+=`<text x="30" y="${y+4}" fill="var(--muted)" font-size="11">${esc(it.ch||'')}</text>`;
+    if(a===null||b===null) return;
+    const xa=x(a), xb=x(b);
+    s+=`<line x1="${xa}" y1="${y}" x2="${xb}" y2="${y}" stroke="var(--axis)" stroke-width="2"/>`;
+    s+=`<circle cx="${xa}" cy="${y}" r="5.5" fill="var(--pre)" stroke="var(--surface)" stroke-width="2"
+         class="pt" data-tip="${esc(it.id+' '+it.stem)}｜前測 ${pct(a)}（${it.preC}/${it.preN}）"/>`;
+    s+=`<circle cx="${xb}" cy="${y}" r="5.5" fill="var(--post)" stroke="var(--surface)" stroke-width="2"
+         class="pt" data-tip="${esc(it.id+' '+it.stem)}｜後測 ${pct(b)}（${it.postC}/${it.postN}）"/>`;
+    const right=Math.max(xa,xb);
+    s+=`<text x="${right+9}" y="${y+4}" fill="var(--ink2)" font-size="11.5"
+         font-family="var(--font-num)">${Math.round(b*100)}%</text>`;
+  });
+  s+='</svg>';
+  box.innerHTML=s;
+  box.querySelectorAll('.pt').forEach(el=>{
+    el.addEventListener('mousemove',e=>showTip(e,el.dataset.tip));
+    el.addEventListener('mouseleave',hideTip);
+  });
+}
+function cut(t,n){ t=String(t||'').trim(); return t.length>n ? t.slice(0,n).replace(/[，、。：；,]$/,'')+'…' : t; }
+function esc(s){ return String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ============ 畫面 ============ */
+function render(){
+  const P=pooled();
+  const stats=cohorts.map(c=>({c,s:cohortStats(c)}));
+  document.getElementById('sampleNote').hidden=!isSample;
+
+  /* chips */
+  document.getElementById('chips').innerHTML=cohorts.map((c,i)=>
+    `<span class="chip"><b>${esc(c.label)}</b>${c.sample?'':`<button data-i="${i}" title="移除">×</button>`}</span>`
+  ).join('');
+  document.querySelectorAll('.chip button').forEach(b=>b.onclick=()=>{
+    cohorts.splice(+b.dataset.i,1);
+    if(!cohorts.length){ cohorts=sampleCohorts(); isSample=true; }
+    render();
+  });
+
+  /* KPI */
+  const allPre=[].concat(...stats.map(x=>x.c.prepost.filter(p=>p.pre!==null).map(p=>p.pre)));
+  const allPost=[].concat(...stats.map(x=>x.c.prepost.filter(p=>p.post!==null).map(p=>p.post)));
+  const max=P.key.length||10;
+  const ap=avg(allPre), aq=avg(allPost);
+  const classG=(ap!==null&&aq!==null&&max>ap)?(aq-ap)/(max-ap):null;
+  const nAll=stats.reduce((a,x)=>a+x.s.n,0);
+  const gTag=classG===null?'':(classG>=.7?'<span class="pill good">高</span>':classG>=.3?'<span class="pill warn">中</span>':'<span class="pill crit">低</span>');
+  document.getElementById('ovSub').textContent=
+    cohorts.length+' 個梯次　·　共 '+nAll+' 人　·　前後測滿分 '+max+' 分';
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><div class="k">梯次</div><div class="v">${cohorts.length}</div><div class="d">共 ${nAll} 人</div></div>
+    <div class="kpi"><div class="k">前測平均</div><div class="v">${f1(ap)}</div><div class="d">／ ${max} 分　n=${allPre.length}</div></div>
+    <div class="kpi"><div class="k">後測平均</div><div class="v">${f1(aq)}</div><div class="d">${
+      (ap!==null&&aq!==null)?`<span class="${aq>=ap?'up':'down'}">${aq>=ap?'▲':'▼'} ${f1(Math.abs(aq-ap))} 分</span>`:'—'}</div></div>
+    <div class="kpi"><div class="k">班級 &lt;g&gt;</div><div class="v">${f2(classG)}</div><div class="d">${gTag}</div></div>`;
+
+  /* 梯次表 */
+  document.getElementById('cohortTbl').innerHTML=
+    `<thead><tr><th>梯次</th><th>時間</th><th class="n">人數</th><th class="n">遊戲均分</th>
+      <th class="n">前測</th><th class="n">後測</th><th class="n">進步</th><th class="n">班級 &lt;g&gt;</th><th class="n">個人 &lt;g&gt;</th></tr></thead><tbody>`+
+    stats.map(({c,s})=>`<tr><td class="nw">${esc(c.label)}</td><td class="sub nw">${esc(c.time)}</td>
+      <td class="n">${s.n}</td><td class="n">${f1(s.game)}</td>
+      <td class="n">${f1(s.pre)}</td><td class="n">${f1(s.post)}</td>
+      <td class="n ${(s.post>s.pre)?'up':''}">${(s.pre!==null&&s.post!==null)?(s.post>=s.pre?'+':'')+f1(s.post-s.pre):'—'}</td>
+      <td class="n">${f2(s.classG)}</td><td class="n">${f2(s.indivG)}</td></tr>`).join('')+'</tbody>';
+
+  /* 前後測 */
+  document.getElementById('secTest').hidden=!P.items.length;
+  drawDumbbell(P.items);
+  const flag=it=>{
+    if(it.postP===null) return '';
+    if(it.postP<.5) return '<span class="pill crit">後測仍偏低</span>';
+    if(it.preP!==null&&it.preP>.8) return '<span class="pill warn">前測就會</span>';
+    if(it.preP!==null&&(it.postP-it.preP)>=.3) return '<span class="pill good">進步大</span>';
+    return '';
+  };
+  document.getElementById('itemTbl').innerHTML=
+    `<thead><tr><th>題</th><th>章節</th><th>概念</th><th class="n">前測</th><th class="n">後測</th>
+      <th class="n">進步</th><th class="n">鑑別度 D</th><th>判讀</th></tr></thead><tbody>`+
+    P.items.map(it=>`<tr><td class="num">${esc(it.id)}</td><td class="sub nw">${esc(it.ch||'')}</td>
+      <td>${esc(cut(it.stem,34))}</td>
+      <td class="n">${pct(it.preP)}</td><td class="n">${pct(it.postP)}</td>
+      <td class="n ${(it.postP>it.preP)?'up':(it.postP<it.preP?'down':'')}">${
+        (it.preP===null||it.postP===null)?'—':((it.postP>=it.preP?'+':'')+Math.round((it.postP-it.preP)*1000)/10)}</td>
+      <td class="n">${it.D===null?'—':f2(it.D)}</td><td>${flag(it)}</td></tr>`).join('')+'</tbody>';
+
+  /* 遊戲 */
+  const gm={};
+  cohorts.forEach(c=>c.game.forEach(g=>{
+    const t=gm[g.qid]||(gm[g.qid]={qid:g.qid,slide:g.slide,stem:g.stem,total:0,opts:{}});
+    t.total+=g.total||0;
+    g.opts.forEach(o=>{
+      const k=t.opts[o.k]||(t.opts[o.k]={k:o.k,text:o.text,mark:o.mark,n:0});
+      k.n+=o.n; if(!k.text) k.text=o.text; if(!k.mark) k.mark=o.mark;
+    });
+  }));
+  const glist=Object.values(gm).sort((a,b)=>(+a.slide||0)-(+b.slide||0));
+  const traps=[];
+  glist.forEach(g=>Object.values(g.opts).forEach(o=>{
+    if(/✕/.test(o.mark||'') && g.total) traps.push({...o,qid:g.qid,slide:g.slide,stem:g.stem,rate:o.n/g.total});
+  }));
+  traps.sort((a,b)=>b.rate-a.rate);
+  document.getElementById('secGame').hidden=!glist.length;
+  document.getElementById('trapTbl').innerHTML=
+    `<thead><tr><th class="n">投影片</th><th>題目</th><th>被選到的錯誤選項</th><th class="n">比例</th><th style="width:34%">　</th></tr></thead><tbody>`+
+    (traps.slice(0,10).map(t=>`<tr><td class="n">${esc(t.slide)}</td>
+      <td class="sub">${esc(cut(t.stem,20))}</td>
+      <td>${esc(cut(t.text,42))}</td>
+      <td class="n">${pct(t.rate)}</td>
+      <td><div class="bartrack"><div class="bar ${t.rate>=.4?'flag':'miss'}" style="width:${Math.max(2,t.rate*100)}%"></div></div></td>
+      </tr>`).join('')||'<tr><td colspan="5" class="empty">沒有遊戲作答資料</td></tr>')+'</tbody>';
+
+  document.getElementById('qdetail').innerHTML=glist.map(g=>{
+    const opts=Object.values(g.opts);
+    return `<details><summary><span>投影片 ${esc(g.slide)}　${esc(g.stem)}</span>
+      <span class="sub num">${g.total} 人次</span></summary><div class="dbody">`+
+      opts.map(o=>{
+        const r=g.total?o.n/g.total:0, ok=/◎/.test(o.mark||'');
+        return `<div class="barwrap"><span class="lab">${esc(o.k)}　${pct(r)}</span>
+          <div class="bartrack"><div class="bar ${ok?'hit':'miss'}" style="width:${Math.max(1.5,r*100)}%"></div></div>
+          <span style="flex:0 0 46%;min-width:0;font-size:12.5px;color:var(--ink2)">${esc(o.mark||'')}　${esc(o.text||'')}</span></div>`;
+      }).join('')+'</div></details>';
+  }).join('');
+
+  /* 名單 */
+  const roster=[];
+  cohorts.forEach(c=>{
+    const mx=c.key.length||10;
+    const byName={};
+    c.prepost.forEach(p=>byName[p.name]=p);
+    const names=new Set([...c.students.map(s=>s.name),...c.prepost.map(p=>p.name)]);
+    names.forEach(nm=>{
+      const st=c.students.find(s=>s.name===nm)||{};
+      const pp=byName[nm]||{};
+      const g=(pp.pre!==null&&pp.pre!==undefined&&pp.post!==null&&pp.post!==undefined&&mx>pp.pre)
+        ?(pp.post-pp.pre)/(mx-pp.pre):null;
+      roster.push({cohort:c.label,name:nm,game:st.score??null,pre:pp.pre??null,post:pp.post??null,g});
+    });
+  });
+  roster.sort((a,b)=>(b.g??-9)-(a.g??-9));
+  document.getElementById('rosterSub').textContent=roster.length+' 人，依標準化增益排序';
+  document.getElementById('rosterTbl').innerHTML=
+    `<thead><tr><th>梯次</th><th>暱稱</th><th class="n">遊戲分數</th><th class="n">前測</th>
+      <th class="n">後測</th><th class="n">進步</th><th class="n">&lt;g&gt;</th></tr></thead><tbody>`+
+    roster.map(r=>`<tr><td class="sub">${esc(r.cohort)}</td><td>${esc(r.name)}</td>
+      <td class="n">${r.game??'—'}</td><td class="n">${r.pre??'—'}</td><td class="n">${r.post??'—'}</td>
+      <td class="n ${r.pre!==null&&r.post!==null&&r.post>r.pre?'up':''}">${
+        (r.pre!==null&&r.post!==null)?((r.post>=r.pre?'+':'')+(r.post-r.pre)):'—'}</td>
+      <td class="n">${f2(r.g)}</td></tr>`).join('')+'</tbody>';
+
+  window.__merged=buildCSV(P,stats,glist,roster);
+}
+
+/* ============ 合併 CSV ============ */
+function buildCSV(P,stats,glist,roster){
+  const c=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const row=a=>a.map(c).join(',');
+  const L=[];
+  L.push(row(['發燒的第七天 · 跨梯次合併分析']));
+  L.push(row(['梯次數',cohorts.length,'匯出時間',new Date().toLocaleString('zh-TW')]));
+  L.push('');
+  L.push(row(['【梯次總覽】']));
+  L.push(row(['梯次','時間','人數','遊戲均分','前測均分','後測均分','進步','班級<g>','個人<g>']));
+  stats.forEach(({c:co,s})=>L.push(row([co.label,co.time,s.n,f1(s.game),f1(s.pre),f1(s.post),
+    (s.pre!==null&&s.post!==null)?f1(s.post-s.pre):'',f2(s.classG),f2(s.indivG)])));
+  L.push('');
+  L.push(row(['【前後測逐題（合併）】']));
+  L.push(row(['題號','章節','概念','正解','前測答對','前測人數','前測正確率',
+              '後測答對','後測人數','後測正確率','進步（百分點）','鑑別度D']));
+  P.items.forEach(it=>L.push(row([it.id,it.ch,it.stem,it.ans,it.preC,it.preN,pct(it.preP),
+    it.postC,it.postN,pct(it.postP),
+    (it.preP===null||it.postP===null)?'':Math.round((it.postP-it.preP)*1000)/10,
+    it.D===null?'':f2(it.D)])));
+  L.push('');
+  L.push(row(['【遊戲選項分布（合併）】']));
+  L.push(row(['題號','投影片','題目','選項','選項文字','判定','人次','比例']));
+  glist.forEach(g=>Object.values(g.opts).forEach(o=>L.push(row([g.qid,g.slide,g.stem,o.k,o.text,o.mark,
+    o.n,g.total?pct(o.n/g.total):'']))));
+  L.push('');
+  L.push(row(['【學員名單（合併）】']));
+  L.push(row(['梯次','暱稱','遊戲分數','前測','後測','進步','標準化增益<g>']));
+  roster.forEach(r=>L.push(row([r.cohort,r.name,r.game,r.pre,r.post,
+    (r.pre!==null&&r.post!==null)?(r.post-r.pre):'',f2(r.g)])));
+  return L.join('\r\n');
+}
+
+/* ============ 檔案輸入 ============ */
+function addFiles(list){
+  const files=[...list].filter(f=>/\.csv$/i.test(f.name)||f.type.includes('csv'));
+  if(!files.length) return;
+  let left=files.length;
+  files.forEach(f=>{
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        const co=parseCohort(String(rd.result),f.name);
+        if(isSample){ cohorts=[]; isSample=false; }
+        if(!cohorts.some(x=>x.file===co.file&&x.pin===co.pin)) cohorts.push(co);
+      }catch(e){ console.error('解析失敗',f.name,e); }
+      if(--left===0) render();
+    };
+    rd.onerror=()=>{ if(--left===0) render(); };
+    rd.readAsText(f,'utf-8');
+  });
+}
+const drop=document.getElementById('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+drop.addEventListener('click',()=>document.getElementById('file').click());
+document.getElementById('pick').onclick=()=>document.getElementById('file').click();
+document.getElementById('file').onchange=e=>{ addFiles(e.target.files); e.target.value=''; };
+
+document.getElementById('dl').onclick=()=>{
+  const blob=new Blob(['﻿'+(window.__merged||'')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  a.href=url; a.download=`fever7_merged_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},800);
+};
+document.getElementById('copy').onclick=async ()=>{
+  const btn=document.getElementById('copy'), t=btn.textContent;
+  try{ await navigator.clipboard.writeText(window.__merged||''); btn.textContent='已複製 ✓'; }
+  catch(e){
+    const s=document.getElementById('secCsv'); s.hidden=false;
+    document.getElementById('csvOut').value=window.__merged||'';
+    document.getElementById('csvOut').select();
+    btn.textContent='請手動複製';
+  }
+  setTimeout(()=>btn.textContent=t,1800);
+};
+
+cohorts=sampleCohorts();
+render();
+</script>
+</body>
+</html>
