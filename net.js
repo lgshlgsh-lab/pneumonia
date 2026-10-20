@@ -52,6 +52,16 @@
         const s = await R(pin, 'answers/' + qid).get();
         return s.val() || {};
       },
+      submitTest(pin, kind, pid, payload) { return R(pin, 'tests/' + kind + '/' + pid).set(payload); },
+      watchTest(pin, kind, cb) {
+        const r = R(pin, 'tests/' + kind);
+        const h = r.on('value', s => cb(s.val() || {}));
+        return () => r.off('value', h);
+      },
+      async getTest(pin, kind) {
+        const s = await R(pin, 'tests/' + kind).get();
+        return s.val() || {};
+      },
       async closeRoom(pin) { await R(pin).remove(); }
     };
   }
@@ -60,7 +70,7 @@
   function demoNet() {
     const KEY = p => 'f7demo:' + p;
     const bc = ('BroadcastChannel' in window) ? new BroadcastChannel('fever7') : null;
-    const subs = { state: [], players: [], answers: [] };
+    const subs = { state: [], players: [], answers: [], tests: [] };
 
     const read = p => { try { return JSON.parse(localStorage.getItem(KEY(p))) || null; } catch (e) { return null; } };
     const write = (p, room) => {
@@ -73,6 +83,7 @@
       subs.state.forEach(s => s.pin === msg.pin && s.cb(msg.room.state));
       subs.players.forEach(s => s.pin === msg.pin && s.cb(msg.room.players || {}));
       subs.answers.forEach(s => s.pin === msg.pin && s.cb((msg.room.answers || {})[s.qid] || {}));
+      subs.tests.forEach(s => s.pin === msg.pin && s.cb((msg.room.tests || {})[s.kind] || {}));
     }
     if (bc) bc.onmessage = e => fire(e.data);
     window.addEventListener('storage', e => {
@@ -81,11 +92,11 @@
         if (room) fire({ pin, room });
       }
     });
-    const ensure = p => read(p) || { state: {}, players: {}, answers: {} };
+    const ensure = p => read(p) || { state: {}, players: {}, answers: {}, tests: {} };
 
     return {
       mode: 'demo',
-      async createRoom(pin, state) { write(pin, { state, players: {}, answers: {} }); },
+      async createRoom(pin, state) { write(pin, { state, players: {}, answers: {}, tests: {} }); },
       async roomExists(pin) { return !!read(pin); },
       async setState(pin, patch) { const r = ensure(pin); r.state = Object.assign({}, r.state, patch); write(pin, r); },
       watchState(pin, cb) {
@@ -116,6 +127,16 @@
         return () => { const i = subs.answers.indexOf(s); if (i >= 0) subs.answers.splice(i, 1); };
       },
       async getAnswers(pin, qid) { const r = read(pin); return (r && r.answers && r.answers[qid]) || {}; },
+      async submitTest(pin, kind, pid, payload) {
+        const r = ensure(pin); r.tests = r.tests || {}; r.tests[kind] = r.tests[kind] || {};
+        r.tests[kind][pid] = payload; write(pin, r);
+      },
+      watchTest(pin, kind, cb) {
+        const s = { pin, kind, cb }; subs.tests.push(s);
+        const r = read(pin); if (r) setTimeout(() => cb(((r.tests || {})[kind]) || {}), 0);
+        return () => { const i = subs.tests.indexOf(s); if (i >= 0) subs.tests.splice(i, 1); };
+      },
+      async getTest(pin, kind) { const r = read(pin); return ((r && r.tests) || {})[kind] || {}; },
       async closeRoom(pin) { localStorage.removeItem(KEY(pin)); }
     };
   }

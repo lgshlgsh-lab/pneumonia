@@ -263,6 +263,13 @@ input{font:inherit}
           <div class="join-url" id="joinUrl"></div>
           <div style="font-size:13.5px;color:var(--dim)">或直接開啟網址後輸入房號</div>
           <div class="bigpin" id="bigPin">0000</div>
+          <div id="testBox" class="hide" style="margin-top:14px;padding:12px 14px;border-radius:8px;
+               background:rgba(79,155,142,.14);border:1px solid rgba(79,155,142,.5)">
+            <div style="font-size:15px;color:#bfe6de" id="testBoxTitle">前測進行中</div>
+            <div style="font-family:var(--mono);font-size:30px;color:var(--brass-lt);margin:4px 0"
+                 id="testCount">0 / 0</div>
+            <div style="font-size:13px;color:var(--dim)">全部完成後，按下方「結束前測」才能繼續</div>
+          </div>
           <div class="roster" id="roster"></div>
         </div>
       </div>
@@ -311,6 +318,7 @@ input{font:inherit}
     <button class="btn solid" id="cReveal">公布答案</button>
     <button class="btn" id="cRank">隱藏排行</button>
     <button class="btn" id="cFinal">最終成績</button>
+    <button class="btn" id="cTest">開始後測</button>
     <button class="btn" id="cCsv" title="下載本場成績與逐題統計">匯出 CSV</button>
   </div>
 </div>
@@ -341,6 +349,8 @@ input{font:inherit}
   const VMARK = { best: '◎', ok: '○', partial: '△', bad: '✕' };
 
   const LAST = SLIDES[SLIDES.length - 1].n;
+  const TEST = (DATA.test && DATA.test.items) || [];     /* 前後測題庫 */
+  const TESTN = TEST.length;
 
   /* 分段預載：開場先載前 6 張，之後每次翻頁再往前抓 4 張 */
   const preloaded = new Set();
@@ -426,7 +436,9 @@ input{font:inherit}
       drawQR(joinUrl);
     }
 
-    net.createRoom(pin, { phase: 'lobby', slide: 1, qid: null, startedAt: 0, seconds: CFG.defaultSeconds || 45 });
+    net.createRoom(pin, { phase: 'lobby', slide: 1, qid: null, startedAt: 0,
+                          seconds: CFG.defaultSeconds || 45,
+                          test: (TEST && TEST.length) ? 'pre' : null });
 
     net.watchPlayers(pin, ps => {
       players = ps || {};
@@ -436,9 +448,54 @@ input{font:inherit}
         '<span class="rchip">' + esc(p.name) + '</span>').join('');
       if (state && state.phase === 'reveal') renderLB();
       if (state && state.phase === 'final') renderFinal();
+      if (state) paintTest();
     });
 
     net.watchState(pin, s => { if (s) { state = s; paint(); } });
+
+    /* --- 前／後測：追蹤完成人數 --- */
+    let testDone = { pre: {}, post: {} };
+    ['pre', 'post'].forEach(kind => net.watchTest(pin, kind, m => { testDone[kind] = m || {}; paintTest(); }));
+
+    function doneCount(kind) {
+      return Object.keys(players).filter(pid => testDone[kind] && testDone[kind][pid]).length;
+    }
+    function paintTest() {
+      const kind = state && state.test;
+      const tot = Object.keys(players).length;
+      const box = $('#testBox');
+      if (kind) {
+        const n = doneCount(kind);
+        box.classList.remove('hide');
+        $('#testBoxTitle').textContent = (kind === 'pre' ? '前測' : '後測') + '進行中（不計入遊戲分數）';
+        $('#testCount').textContent = n + ' / ' + tot;
+        $('#cTest').textContent = (n >= tot && tot > 0 ? '✓ ' : '') +
+          '結束' + (kind === 'pre' ? '前測' : '後測') + '（' + n + '/' + tot + '）';
+      } else {
+        box.classList.add('hide');
+        const post = Object.keys(testDone.post || {}).length;
+        $('#cTest').textContent = post ? '重開後測' : '開始後測';
+      }
+      /* 測驗進行中不讓主持人翻頁 */
+      const lock = !!kind;
+      $('#cNext').disabled = lock;
+      $('#cPrev').disabled = lock;
+      $('#cJumpGo').disabled = lock;
+      $('#cJump').disabled = lock;
+    }
+
+    $('#cTest').onclick = () => {
+      const kind = state && state.test;
+      if (kind) {
+        const n = doneCount(kind), tot = Object.keys(players).length;
+        if (n < tot && !confirm('還有 ' + (tot - n) + ' 人未完成' +
+            (kind === 'pre' ? '前測' : '後測') + '，確定要結束嗎？')) return;
+        set({ test: null });
+      } else {
+        if (!TESTN) { alert('data.js 裡沒有題庫'); return; }
+        set({ test: 'post' });
+      }
+    };
 
     function set(patch) { return net.setState(pin, patch); }
     /* 用 function 宣告（會被提升）：Firebase 的 watchState 有可能在這一行
@@ -453,7 +510,8 @@ input{font:inherit}
       const ph = state.phase;
       $('#hPhase').textContent = ({ lobby: '大廳', show: '播放中', ask: '作答中', locked: '已截止', reveal: '公布答案', final: '最終成績' })[ph] || ph;
 
-      $('#joinOv').classList.toggle('hide', ph !== 'lobby');
+      $('#joinOv').classList.toggle('hide', ph !== 'lobby' && !state.test);
+      if (state.test) $('#joinOv').classList.remove('hide');
       $('#cRank').classList.toggle('hide', ph !== 'reveal');
       $('#askOv').classList.toggle('hide', !(ph === 'ask' || ph === 'locked'));
       $('#revealOv').classList.toggle('hide', ph !== 'reveal');
@@ -463,6 +521,7 @@ input{font:inherit}
       $('#cLock').disabled = ph !== 'ask';
       $('#cReveal').disabled = !(sl.type === 'ask' && (ph === 'ask' || ph === 'locked'));
 
+      paintTest();
       if (ph === 'ask') startTick(); else stopTick();
       if (ph === 'ask' || ph === 'locked') watchAns(state.qid);
       if (ph === 'reveal') {
@@ -695,6 +754,67 @@ input{font:inherit}
           lines.push(csvRow([qid, q.slide, plain(q.stem), '（作答人數）', '', '', '', tot, '']));
         });
 
+        /* --- 區塊三：前後測成績 --- */
+        if (TESTN) {
+          const pre = await net.getTest(pin, 'pre');
+          const post = await net.getTest(pin, 'post');
+          const ids = Array.from(new Set(
+            Object.keys(players).concat(Object.keys(pre), Object.keys(post))));
+
+          lines.push('');
+          lines.push(csvRow(['【前後測成績】', '滿分 ' + TESTN + ' 分']));
+          lines.push(csvRow(['暱稱', '前測', '後測', '進步', '標準化增益 <g>', '前測秒數', '後測秒數']));
+          ids.forEach(id => {
+            const a0 = pre[id], b0 = post[id];
+            const nm = (players[id] && players[id].name) || (a0 && a0.name) || (b0 && b0.name) || id;
+            let gain = '';
+            if (a0 && b0) {
+              gain = (b0.total > a0.score)
+                ? Math.round((b0.score - a0.score) / (b0.total - a0.score) * 100) / 100
+                : (b0.score === b0.total ? '前測已滿分' : '');
+            }
+            lines.push(csvRow([nm,
+              a0 ? a0.score : '', b0 ? b0.score : '',
+              (a0 && b0) ? (b0.score - a0.score) : '',
+              gain, a0 ? a0.sec : '', b0 ? b0.sec : '']));
+          });
+
+          /* --- 區塊四：前後測逐題正確率 --- */
+          const preA = Object.values(pre), postA = Object.values(post);
+          lines.push('');
+          lines.push(csvRow(['【前後測逐題正確率】']));
+          lines.push(csvRow(['題號', '章節', '題幹', '正解', '正解內容',
+                             '前測答對', '前測人數', '前測正確率',
+                             '後測答對', '後測人數', '後測正確率', '進步（百分點）']));
+          TEST.forEach(it => {
+            const hit = arr => arr.filter(x => x.answers && x.answers[it.n] === it.ans).length;
+            const pn = preA.length, qn = postA.length;
+            const pc = hit(preA), qc = hit(postA);
+            const pr = pn ? pc / pn * 100 : null, qr = qn ? qc / qn * 100 : null;
+            lines.push(csvRow(['T' + it.n, it.ch, plain(it.stem), it.ans, plain(it.opts[it.ans - 1]),
+              pc, pn, pr === null ? '' : Math.round(pr * 10) / 10 + '%',
+              qc, qn, qr === null ? '' : Math.round(qr * 10) / 10 + '%',
+              (pr === null || qr === null) ? '' : Math.round((qr - pr) * 10) / 10]));
+          });
+
+          /* --- 區塊五：前後測作答明細 --- */
+          lines.push('');
+          lines.push(csvRow(['【前後測作答明細】']));
+          const h2 = ['暱稱', '場次'];
+          TEST.forEach(it => h2.push('T' + it.n));
+          h2.push('得分');
+          lines.push(csvRow(h2));
+          [['前測', pre], ['後測', post]].forEach(pair => {
+            const tag = pair[0], m = pair[1];
+            ids.forEach(id => {
+              const r = m[id]; if (!r) return;
+              const nm = (players[id] && players[id].name) || r.name || id;
+              const cells = TEST.map(it => (r.answers && r.answers[it.n]) || '');
+              lines.push(csvRow([nm, tag].concat(cells, [r.score])));
+            });
+          });
+        }
+
         const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -761,6 +881,7 @@ input{font:inherit}
     let pid = null, me = null, state = null, players = {}, myAns = null, tick = null;
     /* 用本機時間量這一題的作答秒數，不依賴手機與主持人電腦的時鐘一致 */
     let lastStarted = 0, qT0 = 0;
+    let tIdx = 0, tAns = {}, myTest = {}, tT0 = 0;
 
     const saved = sessionStorage.getItem(KEY);
     if (saved) { const p = await net.rejoin(pin, saved); if (p) { pid = saved; me = p; } }
@@ -772,11 +893,108 @@ input{font:inherit}
       if (state && state.phase === 'reveal') paintP();
       if (state && state.phase === 'final') paintP();
     });
+    ['pre', 'post'].forEach(kind => net.watchTest(pin, kind, m => {
+      myTest[kind] = !!(m && m[pid]);
+      if (state) paintP();
+    }));
+
     net.watchState(pin, s => { if (s) { state = s; paintP(); } });
+
+    /* ---------- 前／後測畫面 ---------- */
+    function drawTest(kind) {
+      const body = $('#pBody');
+      const it = TEST[tIdx];
+      const name = kind === 'pre' ? '前測' : '後測';
+      if (!tT0) tT0 = Date.now();
+      const picked = tAns[it.n];
+      body.innerHTML =
+        '<div class="qnote" style="display:flex;justify-content:space-between;align-items:center">' +
+          '<span>' + name + '　<b style="color:var(--brass-lt)">' + (tIdx + 1) + ' / ' + TESTN + '</b></span>' +
+          '<span style="color:var(--dim)">不計入遊戲分數</span></div>' +
+        '<div class="ptimer"><i style="width:' + Math.round((tIdx + 1) / TESTN * 100) + '%"></i></div>' +
+        '<div class="qstem">' + fmt(it.stem) + '</div>' +
+        '<div class="opts" id="po"></div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px">' +
+          (tIdx > 0 ? '<button class="btn" id="tPrev" style="flex:0 0 auto">← 上一題</button>' : '') +
+          '<button class="psubmit" id="tNext" style="flex:1;margin:0">' +
+            (tIdx === TESTN - 1 ? '送出' + name : '下一題 →') + '</button></div>' +
+        '<div id="pmsg" style="text-align:center;margin-top:12px;color:var(--dim);font-size:13.5px"></div>';
+
+      const ob = $('#po');
+      it.opts.forEach((txt, i) => {
+        const k = i + 1;
+        const b2 = document.createElement('button');
+        b2.className = 'opt' + (picked === k ? ' sel' : '');
+        b2.innerHTML = '<span class="n">' + k + '</span><span>' + esc(txt).replace(/\*/g, '') + '</span>';
+        b2.onclick = () => {
+          tAns[it.n] = k;
+          [...ob.children].forEach(c => c.classList.remove('sel'));
+          b2.classList.add('sel');
+          $('#tNext').disabled = false;
+        };
+        ob.appendChild(b2);
+      });
+      $('#tNext').disabled = !tAns[it.n];
+      $('#tNext').onclick = () => {
+        if (!tAns[it.n]) return;
+        if (tIdx < TESTN - 1) { tIdx++; drawTest(kind); }
+        else submitTest(kind);
+      };
+      if ($('#tPrev')) $('#tPrev').onclick = () => { tIdx--; drawTest(kind); };
+    }
+
+    async function submitTest(kind) {
+      const miss = TEST.filter(it => !tAns[it.n]);
+      if (miss.length) { msg('還有 ' + miss.length + ' 題未作答'); return; }
+      const btn = $('#tNext'); if (btn) { btn.disabled = true; btn.textContent = '送出中…'; }
+      let score = 0;
+      TEST.forEach(it => { if (tAns[it.n] === it.ans) score++; });
+      await net.submitTest(pin, kind, pid, {
+        answers: tAns, score, total: TESTN,
+        sec: Math.round((Date.now() - tT0) / 1000), at: Date.now(), name: (me && me.name) || ''
+      });
+      myTest[kind] = true; tT0 = 0;
+      drawTestDone(kind);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+
+    function drawTestDone(kind) {
+      const body = $('#pBody');
+      const name = kind === 'pre' ? '前測' : '後測';
+      body.innerHTML = '<div class="pidle"><div style="font-size:52px">✓</div>' +
+        '<div class="big">' + name + '完成</div>' +
+        '<div class="sm">請看螢幕，等其他人完成</div></div>';
+      if (kind === 'post') showGain();
+    }
+
+    async function showGain() {
+      try {
+        const pre = await net.getTest(pin, 'pre');
+        const post = await net.getTest(pin, 'post');
+        const a = pre[pid], b2 = post[pid];
+        if (!b2) return;
+        const el = document.querySelector('#pBody .sm');
+        if (!el) return;
+        el.innerHTML = a
+          ? '前測 <b style="color:var(--brass-lt)">' + a.score + '</b> / ' + a.total +
+            '　→　後測 <b style="color:var(--good)">' + b2.score + '</b> / ' + b2.total
+          : '後測 <b style="color:var(--good)">' + b2.score + '</b> / ' + b2.total;
+      } catch (e) { /* 顯示失敗不影響作答 */ }
+    }
 
     function paintP() {
       const body = $('#pBody');
       const ph = state.phase;
+
+      /* --- 前／後測優先於一切 --- */
+      if (state.test && TESTN) {
+        const kind = state.test;
+        if (myTest[kind]) { drawTestDone(kind); return; }
+        if (body.dataset.test !== kind) { body.dataset.test = kind; tIdx = 0; tAns = {}; }
+        drawTest(kind);
+        return;
+      }
+      body.dataset.test = '';
 
       if (ph === 'ask' || ph === 'locked') {
         const q = Q[state.qid];
