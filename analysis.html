@@ -15,6 +15,7 @@
   --rule:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
   --accent:#256abf; --accent-soft:#e8f0fb;
   --pre:#86b6ef; --post:#256abf;
+  --lk5:#1c4f8f; --lk4:#7aacea; --lk3:#cfcec7; --lk2:#e07a5f; --lk1:#9e2b25;
   --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-ink:#006300;
   --font-ui:"IBM Plex Sans","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --font-num:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
@@ -26,6 +27,7 @@
   --rule:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
   --accent:#3987e5; --accent-soft:#16283f;
   --pre:#1c5cab; --post:#6da7ec;
+  --lk5:#8bbdf5; --lk4:#3d74c4; --lk3:#4d4c48; --lk2:#c25a3e; --lk1:#ef9b84;
   --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-ink:#0ca30c;
   color-scheme:dark;
 }}
@@ -35,6 +37,7 @@
   --rule:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
   --accent:#3987e5; --accent-soft:#16283f;
   --pre:#1c5cab; --post:#6da7ec;
+  --lk5:#8bbdf5; --lk4:#3d74c4; --lk3:#4d4c48; --lk2:#c25a3e; --lk1:#ef9b84;
   --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-ink:#0ca30c;
   color-scheme:dark;
 }
@@ -136,6 +139,9 @@ summary::-webkit-details-marker{display:none}
 summary::after{content:"＋";color:var(--muted);font-family:var(--font-num)}
 details[open] summary::after{content:"−"}
 .dbody{padding:0 14px 14px;display:grid;gap:7px}
+.quote{border-left:2.5px solid var(--accent);background:var(--plane);border-radius:0 7px 7px 0;
+  padding:9px 12px;font-size:13.5px;line-height:1.7}
+.quote b{display:block;font-size:11.5px;color:var(--muted);font-weight:500;margin-bottom:3px}
 
 .empty{color:var(--muted);font-size:13.5px;padding:18px;text-align:center}
 textarea{width:100%;min-height:140px;font-family:var(--font-num);font-size:12px;border-radius:8px;
@@ -195,6 +201,23 @@ footer{margin-top:52px;padding-top:16px;border-top:1px solid var(--rule);color:v
       <b>鑑別度 D</b>＝後測總分前 27% 的答對率 − 後 27% 的答對率。D ≥ 0.40 佳、0.30–0.39 尚可、0.20–0.29 需修改、&lt; 0.20 差。
       人數少於 8 人時不計算。
     </div>
+  </section>
+
+  <section id="secSurvey" hidden>
+    <div class="shead">
+      <div><h2>教學滿意度</h2>
+      <div class="sub" id="svSub">合併所有梯次。往右是滿意，往左是不滿意，中間灰色是「尚可」。</div></div>
+    </div>
+    <div class="kpis" id="svKpis" style="margin-bottom:16px"></div>
+    <div class="chartbox">
+      <div class="legend" id="svLegend"></div>
+      <div id="svChart"></div>
+    </div>
+    <div class="scroll" style="margin-top:14px"><table id="svTbl"></table></div>
+    <div class="shead" style="margin-top:26px"><div><h2>訓練成效自評</h2>
+      <div class="sub" id="svMustQ"></div></div></div>
+    <div class="scroll"><table id="svMustTbl"></table></div>
+    <div id="svOpen" style="margin-top:22px"></div>
   </section>
 
   <section id="secGame">
@@ -298,8 +321,30 @@ function parseCohort(text, filename){
     name:o['暱稱'], pre:numOr(o['前測'],null), post:numOr(o['後測'],null),
     preSec:numOr(o['前測秒數'],null), postSec:numOr(o['後測秒數'],null)
   })).filter(x=>x.name);
+  /* ---- 教學滿意度調查 ---- */
+  const svStat=asObjects(B['滿意度統計']).filter(o=>o['項目'] && !/^（/.test(o['項目']));
+  const svItems=svStat.map(o=>o['項目']);
+  const svDetail=B['滿意度逐筆']||[];
+  const svHead=svDetail.length?svDetail[0].map(h=>(h||'').trim()):[];
+  const openCols=svHead.slice(svHead.indexOf('備註說明')+1).filter(h=>h);
+  const survey=(svHead.length?asObjects(svDetail):[]).filter(o=>o['平均']!==undefined).map(o=>{
+    const sc={}; svItems.forEach(l=>{ const v=numOr(o[l],null); if(v!==null) sc[l]=v; });
+    const op={}; openCols.forEach(c=>{ if((o[c]||'').trim()) op[c]=o[c].trim(); });
+    return {name:o['暱稱']||'', must:numOr(o['成效自評'],null), scores:sc,
+            mean:numOr(o['平均'],null), note:(o['備註說明']||'').trim(), open:op};
+  });
+  const mustOpts=asObjects(B['訓練成效自評'])
+    .filter(o=>/^[1-5]$/.test((o['等級']||'').trim()))
+    .map(o=>({k:+o['等級'], text:o['選項']}));
+  const svMeta=(B['教學滿意度調查']||[]).reduce((m,r)=>{
+    if(r[0]) m[r[0].trim()]=(r[1]||'').trim();
+    if(r[2]) m[r[2].trim()]=(r[3]||'').trim();
+    return m;
+  },{});
+
   return {label:(pin?('房號 '+pin):filename.replace(/\.csv$/i,'')), pin, time,
-          file:filename, students, game, key, tKeys, pre, post, prepost};
+          file:filename, students, game, key, tKeys, pre, post, prepost,
+          svItems, survey, mustOpts, svMeta, openCols};
 }
 
 /* ============ 範例資料 ============ */
@@ -351,7 +396,41 @@ function sampleCohorts(){
         {k:'2',text:'Meropenem MIC ≤0.25，治療一定最好',mark:'✕ 錯誤',n:Math.round(n*.18)},
         {k:'3',text:'不同藥物不能直接比 MIC',mark:'◎ 最佳',n:Math.round(n*.41)}]}
     ];
-    return {label,pin,time:'範例',file:'範例',students,game,key,tKeys,pre,post,prepost,sample:true};
+    /* 範例滿意度資料 */
+    const svItems=['一、您對於教學設備環境','二、您對於教學時間安排',
+      '三甲、內容切合主題','三乙、教學內容易於理解','三丙、教學與實務之結合',
+      '三丁、符合學員需求','三戊、使用多元教材工具',
+      '四甲、能引發學習動機','四乙、講師音量大小','四丙、課程時間控制',
+      '五甲、教學準備充分','五乙、按時教學不遲到早退','五丙、教學認真',
+      '六、您對於課程整體滿意度'];
+    const lean={'一、您對於教學設備環境':-.9,'四乙、講師音量大小':-.5,'四丙、課程時間控制':-.7,
+                '三戊、使用多元教材工具':-.3};
+    const openCols=['七、您還希望參加哪一類相關訓練課程？','八、您對於本教學訓練課程之整體心得或建議',
+                    '九、除上述問題以外，還有哪些建議？'];
+    const voices=[['抗藥性菌株的處置','情境很真實，壓力下做決定的感覺跟值班一樣',''],
+                  ['血液培養判讀','分數制度讓人很緊張，但記得住',''],
+                  ['','教室冷氣太強，後半段有點冷','希望講義能先發'],
+                  ['真菌感染','antibiogram 那段很受用',''],
+                  ['','時間稍微趕了一點','']];
+    const survey=[];
+    for(let i=0;i<n;i++){
+      const sc={}; let sum=0;
+      svItems.forEach(l=>{
+        let v=Math.round(4.2+(lean[l]||0)+rnd()*1.4-.5);
+        v=Math.max(1,Math.min(5,v)); sc[l]=v; sum+=v;
+      });
+      const vo=voices[i%voices.length];
+      const op={}; openCols.forEach((c,j)=>{ if(vo[j]) op[c]=vo[j]; });
+      survey.push({name:'學員 '+String.fromCharCode(65+i),
+        must:Math.max(1,Math.min(5,Math.round(3.7+rnd()*1.4-.5))),
+        scores:sc, mean:Math.round(sum/svItems.length*100)/100,
+        note:i===2?'一、您對於教學設備環境：冷氣太冷':'', open:op});
+    }
+    const mustOpts=[{k:1,text:'訓練無價值、缺乏認同感'},{k:2,text:'對訓練系統沒有特殊的感覺'},
+      {k:3,text:'認同訓練有一定的改善功效'},{k:4,text:'訓練已達能力與績效改善'},
+      {k:5,text:'超越訓練設定的目標與價值'}];
+    return {label,pin,time:'範例',file:'範例',students,game,key,tKeys,pre,post,prepost,
+            svItems,survey,mustOpts,openCols,svMeta:{},sample:true};
   }
   return [cohort('範例梯次 1','—',12,.44,.26,7),cohort('範例梯次 2','—',10,.40,.31,91)];
 }
@@ -514,6 +593,9 @@ function render(){
         (it.preP===null||it.postP===null)?'—':((it.postP>=it.preP?'+':'')+Math.round((it.postP-it.preP)*1000)/10)}</td>
       <td class="n">${it.D===null?'—':f2(it.D)}</td><td>${flag(it)}</td></tr>`).join('')+'</tbody>';
 
+  /* 教學滿意度 */
+  renderSurvey();
+
   /* 遊戲 */
   const gm={};
   cohorts.forEach(c=>c.game.forEach(g=>{
@@ -611,10 +693,186 @@ function buildCSV(P,stats,glist,roster){
   L.push(row(['梯次','暱稱','遊戲分數','前測','後測','進步','標準化增益<g>']));
   roster.forEach(r=>L.push(row([r.cohort,r.name,r.game,r.pre,r.post,
     (r.pre!==null&&r.post!==null)?(r.post-r.pre):'',f2(r.g)])));
+
+  const S=surveyPooled();
+  if(S.rows.length){
+    L.push('');
+    L.push(row(['【滿意度統計（合併）】','5 非常滿意 / 4 滿意 / 3 尚可 / 2 不滿意 / 1 非常不滿意']));
+    L.push(row(['項目'].concat(LK,['填答份數','平均','滿意度(%)'])));
+    S.stat.forEach(x=>L.push(row([x.label,x.c5,x.c4,x.c3,x.c2,x.c1,x.n,
+      x.mean===null?'':x.mean.toFixed(2), x.sat===null?'':pct(x.sat)])));
+    L.push('');
+    L.push(row(['【訓練成效自評（合併）】']));
+    L.push(row(['等級','選項','人數','百分比']));
+    S.mustOpts.forEach(o=>{
+      const n=S.rows.filter(r=>r.must===o.k).length;
+      L.push(row([o.k,o.text,n,S.rows.length?pct(n/S.rows.length):'']));
+    });
+    L.push('');
+    L.push(row(['【滿意度逐筆（合併）】']));
+    L.push(row(['梯次','暱稱','成效自評'].concat(S.items,['平均','備註說明'],S.openCols)));
+    S.rows.forEach(r=>L.push(row([r.cohort,r.name,r.must]
+      .concat(S.items.map(l=>r.scores[l]||''), [r.mean, r.note],
+              S.openCols.map(c2=>(r.open&&r.open[c2])||'')))));
+  }
   return L.join('\r\n');
 }
 
 /* ============ 檔案輸入 ============ */
+
+/* ============ 教學滿意度 ============ */
+const LK = ['非常滿意','滿意','尚可','不滿意','非常不滿意'];   /* 5 → 1 */
+const LKV = [5,4,3,2,1];
+
+function surveyPooled(){
+  const items = cohorts.find(c=>c.svItems && c.svItems.length)?.svItems || [];
+  const rows = [].concat(...cohorts.map(c=>(c.survey||[]).map(r=>({...r, cohort:c.label}))));
+  const stat = items.map(label=>{
+    const vals = rows.map(r=>r.scores[label]).filter(v=>v);
+    const cnt = v=>vals.filter(x=>x===v).length;
+    return {label, n:vals.length,
+      c5:cnt(5), c4:cnt(4), c3:cnt(3), c2:cnt(2), c1:cnt(1),
+      mean: vals.length? vals.reduce((a,b)=>a+b,0)/vals.length : null,
+      sat:  vals.length? (cnt(5)+cnt(4))/vals.length : null};
+  });
+  const mustOpts = cohorts.find(c=>c.mustOpts && c.mustOpts.length)?.mustOpts || [];
+  const openCols = cohorts.find(c=>c.openCols && c.openCols.length)?.openCols || [];
+  return {items, rows, stat, mustOpts, openCols};
+}
+
+/* 分向堆疊長條：不滿意往左、滿意往右、尚可置中跨越零線 */
+function drawLikert(stat){
+  const box=document.getElementById('svChart');
+  if(!stat.length){ box.innerHTML='<div class="empty">沒有滿意度資料</div>'; return; }
+  const W=740, padL=190, padR=58, rowH=27, gap=7, top=30;
+  const H = top + stat.length*(rowH+gap) + 24;
+  const plot = W - padL - padR;
+  const mid = padL + plot/2;
+  const sc = v => v/100 * (plot/2);          /* 百分點 → px（左右各半） */
+  const fills=['var(--lk5)','var(--lk4)','var(--lk3)','var(--lk2)','var(--lk1)'];
+  let g='';
+  /* 格線 */
+  [-100,-50,0,50,100].forEach(t=>{
+    const x = mid + sc(t);
+    g += `<line x1="${x}" y1="${top-8}" x2="${x}" y2="${H-20}" stroke="${t===0?'var(--axis)':'var(--rule)'}" stroke-width="1"/>`
+      +  `<text x="${x}" y="${top-14}" text-anchor="middle" class="axl">${Math.abs(t)}%</text>`;
+  });
+  stat.forEach((it,i)=>{
+    const y = top + i*(rowH+gap);
+    const n = it.n||1;
+    const p = k => it['c'+k]/n*100;
+    /* 中性置中 */
+    const half3 = p(3)/2;
+    let x = mid - sc(half3);
+    const seg=[];
+    seg.push({x, w:sc(p(3)), f:fills[2], k:3});
+    /* 右側：滿意 → 非常滿意 */
+    let xr = mid + sc(half3);
+    [4,5].forEach(k=>{ const w=sc(p(k)); if(w>0){ seg.push({x:xr,w,f:fills[5-k],k}); } xr+=w; });
+    /* 左側：不滿意 → 非常不滿意 */
+    let xl = mid - sc(half3);
+    [2,1].forEach(k=>{ const w=sc(p(k)); if(w>0){ xl-=w; seg.push({x:xl,w,f:fills[5-k],k}); } });
+    seg.forEach(sg=>{
+      if(sg.w<=0) return;
+      g += `<rect x="${sg.x+1}" y="${y}" width="${Math.max(0,sg.w-2)}" height="${rowH}" rx="2" fill="${sg.f}"
+             data-t="${esc(it.label)}｜${LK[5-sg.k]} ${Math.round(p(sg.k)*10)/10}%（${it['c'+sg.k]} 人）"/>`;
+    });
+    g += `<text x="${padL-12}" y="${y+rowH/2+4}" text-anchor="end" class="axl lab">${esc(cut(it.label,13))}</text>`;
+    g += `<text x="${W-padR+10}" y="${y+rowH/2+4}" class="val">${it.mean===null?'—':it.mean.toFixed(2)}</text>`;
+  });
+  g += `<text x="${W-padR+10}" y="${top-14}" class="axl">平均</text>`;
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="各項目滿意度分布">
+    <style>.axl{font:11.5px var(--font-ui);fill:var(--muted)}.lab{fill:var(--ink2)}
+    .val{font:12px var(--font-num);fill:var(--ink2)}</style>${g}</svg>`;
+  box.querySelectorAll('rect[data-t]').forEach(r=>{
+    r.style.cursor='default';
+    r.addEventListener('mouseenter',e=>showTip(e, r.dataset.t));
+    r.addEventListener('mousemove',e=>showTip(e, r.dataset.t));
+    r.addEventListener('mouseleave',hideTip);
+  });
+}
+
+function renderSurvey(){
+  const S=surveyPooled();
+  const sec=document.getElementById('secSurvey');
+  sec.hidden = !S.rows.length;
+  if(!S.rows.length) return;
+
+  const means=S.rows.map(r=>r.mean).filter(v=>typeof v==='number');
+  const overall = means.length? means.reduce((a,b)=>a+b,0)/means.length : null;
+  const allSat = S.stat.filter(x=>x.n).reduce((a,x)=>a+x.sat*x.n,0) /
+                 Math.max(1,S.stat.reduce((a,x)=>a+x.n,0));
+  const musts=S.rows.map(r=>r.must).filter(v=>v);
+  const mAvg = musts.length? musts.reduce((a,b)=>a+b,0)/musts.length : null;
+  const tag = v=> v>=4.5?'<span class="pill good">很好</span>'
+                : v>=4?'<span class="pill good">良好</span>'
+                : v>=3.5?'<span class="pill warn">尚可</span>'
+                : '<span class="pill crit">待改善</span>';
+  document.getElementById('svKpis').innerHTML=`
+    <div class="kpi"><div class="k">回收份數</div><div class="v">${S.rows.length}</div>
+      <div class="d">共 ${cohorts.length} 個梯次</div></div>
+    <div class="kpi"><div class="k">整體平均</div><div class="v">${overall===null?'—':overall.toFixed(2)}</div>
+      <div class="d">／ 5 分　${overall===null?'':tag(overall)}</div></div>
+    <div class="kpi"><div class="k">滿意度</div><div class="v">${(allSat*100).toFixed(1)}<small>%</small></div>
+      <div class="d">非常滿意 ＋ 滿意</div></div>
+    <div class="kpi"><div class="k">成效自評</div><div class="v">${mAvg===null?'—':mAvg.toFixed(2)}</div>
+      <div class="d">／ 5 級</div></div>`;
+
+  document.getElementById('svLegend').innerHTML=
+    LK.map((l,i)=>`<span><i style="background:var(--lk${5-i})"></i>${l}</span>`).join('');
+  drawLikert(S.stat);
+
+  const low=S.stat.filter(x=>x.n).reduce((a,x)=>x.mean<a.mean?x:a, {mean:9});
+  document.getElementById('svSub').innerHTML=
+    `合併所有梯次。往右是滿意，往左是不滿意，中間灰色是「尚可」。` +
+    (low.label? `最低分的是<b>「${esc(low.label)}」${low.mean.toFixed(2)} 分</b>。` : '');
+
+  document.getElementById('svTbl').innerHTML=
+    `<thead><tr><th>項目</th>`+LK.map(l=>`<th class="n">${l}</th>`).join('')+
+    `<th class="n">份數</th><th class="n">平均</th><th class="n">滿意度</th></tr></thead><tbody>`+
+    S.stat.map(x=>`<tr><td class="nw">${esc(x.label)}</td>`+
+      LKV.map(v=>`<td class="n${x['c'+v]?'':' sub'}">${x['c'+v]}</td>`).join('')+
+      `<td class="n">${x.n}</td><td class="n">${x.mean===null?'—':x.mean.toFixed(2)}</td>
+       <td class="n ${x.sat>=.8?'up':(x.sat<.6?'down':'')}">${pct(x.sat)}</td></tr>`).join('')+
+    `<tr><td class="nw"><b>整體</b></td><td class="n" colspan="5"></td>
+      <td class="n">${S.rows.length}</td><td class="n"><b>${overall===null?'—':overall.toFixed(2)}</b></td>
+      <td class="n"><b>${(allSat*100).toFixed(1)}%</b></td></tr></tbody>`;
+
+  /* 訓練成效自評 */
+  const mq=cohorts.find(c=>c.svMeta && c.svMeta['課程主題']);
+  document.getElementById('svMustQ').textContent='本課程對您能力改善與工作績效之幫助'+
+    (mq? '　·　'+mq.svMeta['課程主題'] : '');
+  document.getElementById('svMustTbl').innerHTML=
+    `<thead><tr><th class="n">等級</th><th>選項</th><th class="n">人數</th><th class="n">百分比</th>
+      <th style="width:30%">　</th></tr></thead><tbody>`+
+    (S.mustOpts.length? S.mustOpts.map(o=>{
+      const c=S.rows.filter(r=>r.must===o.k).length;
+      const r=S.rows.length? c/S.rows.length : 0;
+      return `<tr><td class="n">${o.k}</td><td>${esc(o.text)}</td><td class="n">${c}</td>
+        <td class="n">${pct(r)}</td>
+        <td><div class="bartrack"><div class="bar ${o.k>=4?'hit':'miss'}"
+          style="width:${r>0?Math.max(1.5,r*100):0}%"></div></div></td></tr>`;
+    }).join('') : '<tr><td colspan="5" class="empty">沒有資料</td></tr>')+'</tbody>';
+
+  /* 開放問答 */
+  const blocks=S.openCols.map(col=>{
+    const said=S.rows.filter(r=>r.open && r.open[col]);
+    if(!said.length) return '';
+    return `<details><summary><span>${esc(col)}</span>
+      <span class="sub num">${said.length} 則</span></summary><div class="dbody">`+
+      said.map(r=>`<div class="quote"><b>${esc(r.cohort)}${r.name?'　'+esc(r.name):''}</b>
+        ${esc(r.open[col])}</div>`).join('')+'</div></details>';
+  }).filter(Boolean);
+  const notes=S.rows.filter(r=>r.note);
+  if(notes.length) blocks.push(`<details><summary><span>各題備註說明</span>
+    <span class="sub num">${notes.length} 則</span></summary><div class="dbody">`+
+    notes.map(r=>`<div class="quote"><b>${esc(r.cohort)}${r.name?'　'+esc(r.name):''}</b>
+      ${esc(r.note)}</div>`).join('')+'</div></details>');
+  document.getElementById('svOpen').innerHTML= blocks.length
+    ? '<div class="sub" style="margin-bottom:10px">學員自己寫的話（原文照錄）</div>'+blocks.join('')
+    : '';
+}
+
 function addFiles(list){
   const files=[...list].filter(f=>/\.csv$/i.test(f.name)||f.type.includes('csv'));
   if(!files.length) return;
