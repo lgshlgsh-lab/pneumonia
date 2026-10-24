@@ -178,6 +178,29 @@ input{font:inherit}
 .ptimer{height:8px;background:#0a0e15;border-radius:4px;overflow:hidden;margin-bottom:14px}
 .ptimer i{display:block;height:100%;background:linear-gradient(90deg,var(--patina),var(--brass));transition:width .95s linear}
 .ptimer.low i{background:var(--blood)}
+
+/* ---- 教學滿意度調查 ---- */
+.svmeta{font-size:12.5px;color:var(--dim);line-height:1.85;background:rgba(79,155,142,.08);
+  border:1px solid rgba(79,155,142,.26);border-radius:9px;padding:11px 13px;margin-bottom:15px}
+.svmeta b{color:var(--text);font-weight:600}
+.svhead{font-family:var(--disp);font-size:18px;color:var(--brass-lt);margin:0 0 4px}
+.svrow{padding:14px 0;border-bottom:1px solid rgba(201,162,39,.13)}
+.svrow:last-of-type{border-bottom:0}
+.svlab{font-size:15px;line-height:1.6;margin-bottom:10px}
+.svscale{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.svb{padding:8px 1px 7px;border-radius:9px;border:1px solid rgba(201,162,39,.28);background:#0d1219;
+  color:var(--dim);font-family:var(--ui);font-size:10.5px;line-height:1.3;text-align:center;cursor:pointer}
+.svb b{display:block;font-family:var(--mono);font-size:16px;color:var(--brass-lt);margin-bottom:2px;font-weight:400}
+.svb.sel{border-color:var(--patina);background:rgba(31,74,69,.92);color:#cfeee6}
+.svb.sel b{color:#8fe0d1}
+.svb:active{transform:scale(.97)}
+.svnotebtn{background:none;border:0;color:var(--dim);font-size:12.5px;padding:7px 0 0;cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px}
+.svnote{width:100%;margin-top:8px;background:#0b0f16;border:1px solid rgba(201,162,39,.25);
+  border-radius:8px;color:var(--text);padding:9px 11px;font-family:var(--ui);font-size:14.5px;
+  line-height:1.6;resize:vertical;box-sizing:border-box}
+.svnote:focus{outline:0;border-color:var(--patina)}
+.svmiss{color:var(--gas)}
 .result{text-align:center;padding:18px 0}
 .rbadge{width:78px;height:78px;border-radius:50%;display:grid;place-items:center;font-size:40px;font-weight:700;
   margin:0 auto 14px}
@@ -319,6 +342,7 @@ input{font:inherit}
     <button class="btn" id="cRank">隱藏排行</button>
     <button class="btn" id="cFinal">最終成績</button>
     <button class="btn" id="cTest">開始後測</button>
+    <button class="btn" id="cSurvey">滿意度調查</button>
     <button class="btn" id="cCsv" title="下載本場成績與逐題統計">匯出 CSV</button>
   </div>
 </div>
@@ -351,6 +375,18 @@ input{font:inherit}
   const LAST = SLIDES[SLIDES.length - 1].n;
   const TEST = (DATA.test && DATA.test.items) || [];     /* 前後測題庫 */
   const TESTN = TEST.length;
+
+  /* ---- 教學滿意度調查 ---- */
+  const SURVEY = DATA.survey || null;
+  /* 每個量表題帶上章節代號（三甲、四乙…），統計表才對得上紙本 */
+  const SV_ITEMS = SURVEY
+    ? SURVEY.pages.reduce((a, p) => a.concat(
+        p.items.map(it => Object.assign({ csv: (p.tag || '') + it.label }, it))), [])
+    : [];
+  const SV_SCALE = (SURVEY && SURVEY.scale) || [];
+  const SV_COURSE = Object.assign({}, (SURVEY && SURVEY.course) || {}, CFG.course || {});
+  /* 測驗種類 → 顯示名稱 */
+  const KIND_NAME = { pre: '前測', post: '後測', survey: (SURVEY && SURVEY.title) || '滿意度調查' };
 
   /* 分段預載：開場先載前 6 張，之後每次翻頁再往前抓 4 張 */
   const preloaded = new Set();
@@ -453,9 +489,10 @@ input{font:inherit}
 
     net.watchState(pin, s => { if (s) { state = s; paint(); } });
 
-    /* --- 前／後測：追蹤完成人數 --- */
-    let testDone = { pre: {}, post: {} };
-    ['pre', 'post'].forEach(kind => net.watchTest(pin, kind, m => { testDone[kind] = m || {}; paintTest(); }));
+    /* --- 前／後測／滿意度調查：追蹤完成人數 --- */
+    let testDone = { pre: {}, post: {}, survey: {} };
+    ['pre', 'post', 'survey'].forEach(kind =>
+      net.watchTest(pin, kind, m => { testDone[kind] = m || {}; paintTest(); }));
 
     function doneCount(kind) {
       return Object.keys(players).filter(pid => testDone[kind] && testDone[kind][pid]).length;
@@ -464,18 +501,30 @@ input{font:inherit}
       const kind = state && state.test;
       const tot = Object.keys(players).length;
       const box = $('#testBox');
+      const nm = KIND_NAME[kind] || '';
       if (kind) {
         const n = doneCount(kind);
         box.classList.remove('hide');
-        $('#testBoxTitle').textContent = (kind === 'pre' ? '前測' : '後測') + '進行中（不計入遊戲分數）';
+        $('#testBoxTitle').textContent = nm + '進行中' +
+          (kind === 'survey' ? '（不記名）' : '（不計入遊戲分數）');
         $('#testCount').textContent = n + ' / ' + tot;
-        $('#cTest').textContent = (n >= tot && tot > 0 ? '✓ ' : '') +
-          '結束' + (kind === 'pre' ? '前測' : '後測') + '（' + n + '/' + tot + '）';
+        const lbl = (n >= tot && tot > 0 ? '✓ ' : '') + '結束' + nm + '（' + n + '/' + tot + '）';
+        $(kind === 'survey' ? '#cSurvey' : '#cTest').textContent = lbl;
       } else {
         box.classList.add('hide');
         const post = Object.keys(testDone.post || {}).length;
         $('#cTest').textContent = post ? '重開後測' : '開始後測';
       }
+      if (kind !== 'survey') {
+        const sv = Object.keys(testDone.survey || {}).length;
+        $('#cSurvey').textContent = sv ? '重開滿意度調查（已 ' + sv + ' 份）' : '滿意度調查';
+      }
+      $('#cSurvey').classList.toggle('hide', !SURVEY);
+      /* 後測做完之後才把滿意度調查變成醒目的下一步 */
+      $('#cSurvey').classList.toggle('solid',
+        kind === 'survey' || (!kind && Object.keys(testDone.post || {}).length > 0
+                                   && !Object.keys(testDone.survey || {}).length));
+      $('#cTest').disabled = kind === 'survey';
       /* 測驗進行中不讓主持人翻頁 */
       const lock = !!kind;
       $('#cNext').disabled = lock;
@@ -484,17 +533,29 @@ input{font:inherit}
       $('#cJump').disabled = lock;
     }
 
+    function endKind(kind) {
+      const n = doneCount(kind), tot = Object.keys(players).length;
+      if (n < tot && !confirm('還有 ' + (tot - n) + ' 人未完成' + KIND_NAME[kind] +
+          '，確定要結束嗎？')) return;
+      set({ test: null });
+    }
+
     $('#cTest').onclick = () => {
       const kind = state && state.test;
-      if (kind) {
-        const n = doneCount(kind), tot = Object.keys(players).length;
-        if (n < tot && !confirm('還有 ' + (tot - n) + ' 人未完成' +
-            (kind === 'pre' ? '前測' : '後測') + '，確定要結束嗎？')) return;
-        set({ test: null });
-      } else {
-        if (!TESTN) { alert('data.js 裡沒有題庫'); return; }
-        set({ test: 'post' });
-      }
+      if (kind === 'survey') return;
+      if (kind) { endKind(kind); return; }
+      if (!TESTN) { alert('data.js 裡沒有題庫'); return; }
+      set({ test: 'post' });
+    };
+
+    $('#cSurvey').onclick = () => {
+      const kind = state && state.test;
+      if (kind === 'survey') { endKind('survey'); return; }
+      if (!SURVEY) { alert('data.js 裡沒有滿意度調查表'); return; }
+      if (kind && !confirm('目前' + KIND_NAME[kind] + '還在進行中，要直接切換到滿意度調查嗎？')) return;
+      if (!Object.keys(testDone.post || {}).length &&
+          !confirm('還沒有人完成後測。確定現在就開始滿意度調查嗎？')) return;
+      set({ test: 'survey' });
     };
 
     function set(patch) { return net.setState(pin, patch); }
@@ -815,6 +876,67 @@ input{font:inherit}
           });
         }
 
+        /* --- 區塊六～八：教學滿意度調查 --- */
+        if (SURVEY) {
+          const sv = await net.getTest(pin, 'survey');
+          const rows = Object.values(sv);
+          const n = rows.length;
+          const c = SV_COURSE;
+
+          lines.push('');
+          lines.push(csvRow(['【教學滿意度調查】', SURVEY.formNo || '']));
+          lines.push(csvRow(['課程主題', c.subject || '', '主辦單位', c.org || '']));
+          lines.push(csvRow(['講師', c.teacher || '', '課程日期', new Date().toLocaleDateString('zh-TW')]));
+          lines.push(csvRow(['回收份數', n, '填答方式', '不記名（線上）']));
+
+          /* 訓練成效自評（必填題） */
+          lines.push('');
+          lines.push(csvRow(['【訓練成效自評】', SURVEY.must.q]));
+          lines.push(csvRow(['等級', '選項', '人數', '百分比']));
+          SURVEY.must.opts.forEach((txt, i) => {
+            const k = i + 1;
+            const cnt = rows.filter(r => r.must === k).length;
+            lines.push(csvRow([k, txt, cnt, n ? Math.round(cnt / n * 1000) / 10 + '%' : '']));
+          });
+          const mAvg = n ? rows.reduce((a, r) => a + (r.must || 0), 0) / n : 0;
+          lines.push(csvRow(['平均', '', Math.round(mAvg * 100) / 100, '']));
+
+          /* 量表統計：人資室要的格式 */
+          lines.push('');
+          lines.push(csvRow(['【滿意度統計】', '5 非常滿意 / 4 滿意 / 3 尚可 / 2 不滿意 / 1 非常不滿意']));
+          lines.push(csvRow(['項目'].concat(SV_SCALE, ['填答人數', '平均', '滿意度(%)'])));
+          SV_ITEMS.forEach(it => {
+            const vals = rows.map(r => r.scores && r.scores[it.id]).filter(v => v);
+            const cnt = v => vals.filter(x => x === v).length;
+            const tot2 = vals.length;
+            const avg = tot2 ? vals.reduce((a, b2) => a + b2, 0) / tot2 : 0;
+            const sat = tot2 ? (cnt(5) + cnt(4)) / tot2 * 100 : 0;
+            lines.push(csvRow([it.csv, cnt(5), cnt(4), cnt(3), cnt(2), cnt(1), tot2,
+              tot2 ? Math.round(avg * 100) / 100 : '',
+              tot2 ? Math.round(sat * 10) / 10 + '%' : '']));
+          });
+          const allV = rows.map(r => r.mean).filter(v => typeof v === 'number');
+          lines.push(csvRow(['（整體平均）', '', '', '', '', '', allV.length,
+            allV.length ? Math.round(allV.reduce((a, b2) => a + b2, 0) / allV.length * 100) / 100 : '', '']));
+
+          /* 逐筆明細（含備註與開放問答） */
+          lines.push('');
+          lines.push(csvRow(['【滿意度逐筆】']));
+          const h3 = ['暱稱', '成效自評'].concat(SV_ITEMS.map(it => it.csv),
+                        ['平均', '填答秒數', '備註說明'], SURVEY.open.map(o => o.label));
+          lines.push(csvRow(h3));
+          rows.sort((x, y) => (x.at || 0) - (y.at || 0)).forEach(r => {
+            /* 各題備註併成一欄，格式「項目：內容」，用 ｜ 分隔 */
+            const note = SV_ITEMS.filter(it => r.notes && r.notes[it.id])
+              .map(it => it.csv + '：' + r.notes[it.id]).join('｜');
+            const cells = [r.name || '', r.must || '']
+              .concat(SV_ITEMS.map(it => (r.scores && r.scores[it.id]) || ''),
+                      [r.mean == null ? '' : r.mean, r.sec == null ? '' : r.sec, note],
+                      SURVEY.open.map(o => (r.open && r.open[o.id]) || ''));
+            lines.push(csvRow(cells));
+          });
+        }
+
         const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -882,6 +1004,9 @@ input{font:inherit}
     /* 用本機時間量這一題的作答秒數，不依賴手機與主持人電腦的時鐘一致 */
     let lastStarted = 0, qT0 = 0;
     let tIdx = 0, tAns = {}, myTest = {}, tT0 = 0;
+    /* 滿意度調查的狀態必須在這裡宣告：watchTest 的第一次回呼有可能同步觸發，
+       寫在下面會踩到 TDZ（和先前 cur() 同一類的坑）。 */
+    let sIdx = 0, sAns = {}, sNote = {}, sOpen = {}, sMust = 0, sT0 = 0, mySurvey = false;
 
     const saved = sessionStorage.getItem(KEY);
     if (saved) { const p = await net.rejoin(pin, saved); if (p) { pid = saved; me = p; } }
@@ -897,6 +1022,12 @@ input{font:inherit}
       myTest[kind] = !!(m && m[pid]);
       if (state) paintP();
     }));
+    if (SURVEY) net.watchTest(pin, 'survey', m => {
+      const was = mySurvey;
+      mySurvey = !!(m && m[pid]);
+      /* 只在狀態真的改變時重繪，免得打字打到一半畫面被洗掉 */
+      if (state && was !== mySurvey) paintP();
+    });
 
     net.watchState(pin, s => { if (s) { state = s; paintP(); } });
 
@@ -982,9 +1113,165 @@ input{font:inherit}
       } catch (e) { /* 顯示失敗不影響作答 */ }
     }
 
+    /* ---------- 教學滿意度調查 ---------- */
+    /* 頁面：0 = 必填題 + 課程資訊，1..n = 量表分頁，最後一頁 = 開放問答 */
+    function svPages() { return 1 + SURVEY.pages.length + 1; }
+
+    function drawSurvey() {
+      const body = $('#pBody');
+      const tot = svPages();
+      if (!sT0) sT0 = Date.now();
+      const last = sIdx === tot - 1;
+      let inner = '';
+
+      if (sIdx === 0) {
+        const c = SV_COURSE;
+        inner =
+          '<div class="svmeta">' + SURVEY.intro +
+            '<div style="margin-top:9px;border-top:1px solid rgba(79,155,142,.25);padding-top:8px">' +
+            '課程主題：<b>' + esc(c.subject || '') + '</b><br>' +
+            '主辦單位：<b>' + esc(c.org || '') + '</b>' +
+            (c.teacher ? '<br>講師：<b>' + esc(c.teacher) + '</b>' : '') +
+            '<br>課程日期：<b>' + new Date().toLocaleDateString('zh-TW') + '</b></div></div>' +
+          '<div class="svhead">' + esc(SURVEY.must.q) + '</div>' +
+          '<div class="qnote" style="margin-bottom:12px">本題必填</div>' +
+          '<div class="opts" id="svMust"></div>';
+      } else if (sIdx <= SURVEY.pages.length) {
+        const pg = SURVEY.pages[sIdx - 1];
+        inner = '<div class="svhead">' + esc(pg.head) + '</div>' +
+          '<div class="qnote" style="margin-bottom:6px">5 非常滿意　→　1 非常不滿意</div>' +
+          pg.items.map(it =>
+            '<div class="svrow" data-id="' + it.id + '">' +
+              '<div class="svlab">' + esc(it.label) + '</div>' +
+              '<div class="svscale">' +
+                SV_SCALE.map((lab, i) => {
+                  const v = 5 - i;
+                  return '<button class="svb' + (sAns[it.id] === v ? ' sel' : '') +
+                         '" data-v="' + v + '"><b>' + v + '</b>' + esc(lab) + '</button>';
+                }).join('') +
+              '</div>' +
+              '<button class="svnotebtn" data-note="' + it.id + '">' +
+                (sNote[it.id] ? '備註（已填）' : '＋ 備註說明（選填）') + '</button>' +
+              (sNote[it.id] != null
+                ? '<textarea class="svnote" rows="2" data-noteid="' + it.id +
+                  '" placeholder="備註說明">' + esc(sNote[it.id]) + '</textarea>' : '') +
+            '</div>').join('');
+      } else {
+        inner = '<div class="svhead">其他建議（皆為選填）</div>' +
+          SURVEY.open.map(o =>
+            '<div class="svrow"><div class="svlab">' + esc(o.label) + '</div>' +
+            '<textarea class="svnote" rows="3" data-openid="' + o.id + '" style="margin-top:0"' +
+            ' placeholder="沒有的話留白即可">' + esc(sOpen[o.id] || '') + '</textarea></div>').join('');
+      }
+
+      body.innerHTML =
+        '<div class="qnote" style="display:flex;justify-content:space-between;align-items:center">' +
+          '<span>' + esc(SURVEY.title) + '　<b style="color:var(--brass-lt)">' +
+            (sIdx + 1) + ' / ' + tot + '</b></span>' +
+          '<span style="color:var(--dim)">不記名</span></div>' +
+        '<div class="ptimer"><i style="width:' + Math.round((sIdx + 1) / tot * 100) + '%"></i></div>' +
+        inner +
+        '<div style="display:flex;gap:8px;margin-top:16px">' +
+          (sIdx > 0 ? '<button class="btn" id="sPrev" style="flex:0 0 auto">← 上一頁</button>' : '') +
+          '<button class="psubmit" id="sNext" style="flex:1;margin:0">' +
+            (last ? '送出' : '下一頁 →') + '</button></div>' +
+        '<div id="pmsg" style="text-align:center;margin-top:12px;font-size:13.5px"></div>';
+
+      /* 必填題 */
+      const mb = $('#svMust');
+      if (mb) SURVEY.must.opts.forEach((txt, i) => {
+        const k = i + 1;
+        const b2 = document.createElement('button');
+        b2.className = 'opt' + (sMust === k ? ' sel' : '');
+        b2.innerHTML = '<span class="n">' + k + '</span><span>' + esc(txt) + '</span>';
+        b2.onclick = () => {
+          sMust = k;
+          [...mb.children].forEach(c => c.classList.remove('sel'));
+          b2.classList.add('sel');
+          $('#pmsg').textContent = '';
+        };
+        mb.appendChild(b2);
+      });
+
+      /* 量表按鈕 */
+      body.querySelectorAll('.svb').forEach(b2 => {
+        b2.onclick = () => {
+          const row = b2.closest('.svrow');
+          sAns[row.dataset.id] = +b2.dataset.v;
+          row.querySelectorAll('.svb').forEach(x => x.classList.remove('sel'));
+          b2.classList.add('sel');
+          row.classList.remove('svmiss');
+          $('#pmsg').textContent = '';
+        };
+      });
+      /* 備註開合 */
+      body.querySelectorAll('.svnotebtn').forEach(b2 => {
+        b2.onclick = () => {
+          const id = b2.dataset.note;
+          if (sNote[id] == null) sNote[id] = ''; else if (!sNote[id]) delete sNote[id];
+          drawSurvey();
+        };
+      });
+      body.querySelectorAll('textarea[data-noteid]').forEach(t =>
+        t.oninput = () => { sNote[t.dataset.noteid] = t.value; });
+      body.querySelectorAll('textarea[data-openid]').forEach(t =>
+        t.oninput = () => { sOpen[t.dataset.openid] = t.value; });
+
+      $('#sNext').onclick = () => {
+        if (sIdx === 0 && !sMust) { $('#pmsg').innerHTML = '<span class="svmiss">這一題必填</span>'; return; }
+        if (sIdx >= 1 && sIdx <= SURVEY.pages.length) {
+          const miss = SURVEY.pages[sIdx - 1].items.filter(it => !sAns[it.id]);
+          if (miss.length) {
+            $('#pmsg').innerHTML = '<span class="svmiss">還有 ' + miss.length + ' 題未填</span>';
+            body.querySelectorAll('.svrow').forEach(r => {
+              if (!sAns[r.dataset.id]) r.classList.add('svmiss');
+            });
+            return;
+          }
+        }
+        if (!last) { sIdx++; drawSurvey(); body.scrollTop = 0; }
+        else submitSurvey();
+      };
+      if ($('#sPrev')) $('#sPrev').onclick = () => { sIdx--; drawSurvey(); body.scrollTop = 0; };
+    }
+
+    async function submitSurvey() {
+      const miss = SV_ITEMS.filter(it => !sAns[it.id]);
+      if (miss.length) { msg('還有 ' + miss.length + ' 題量表未填'); sIdx = 1; drawSurvey(); return; }
+      const btn = $('#sNext'); if (btn) { btn.disabled = true; btn.textContent = '送出中…'; }
+      const notes = {}, opens = {};
+      Object.keys(sNote).forEach(k => { if ((sNote[k] || '').trim()) notes[k] = sNote[k].trim(); });
+      Object.keys(sOpen).forEach(k => { if ((sOpen[k] || '').trim()) opens[k] = sOpen[k].trim(); });
+      const vals = SV_ITEMS.map(it => sAns[it.id]);
+      await net.submitTest(pin, 'survey', pid, {
+        scores: sAns, must: sMust, notes, open: opens,
+        mean: Math.round(vals.reduce((a, b2) => a + b2, 0) / vals.length * 100) / 100,
+        sec: Math.round((Date.now() - sT0) / 1000), at: Date.now(), name: (me && me.name) || ''
+      });
+      mySurvey = true; sT0 = 0;
+      drawSurveyDone();
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+
+    function drawSurveyDone() {
+      $('#pBody').innerHTML = '<div class="pidle"><div style="font-size:52px">✓</div>' +
+        '<div class="big">謝謝你的回饋</div>' +
+        '<div class="sm">滿意度調查已送出<br>這些意見會用來改進下一梯次的課程</div></div>';
+    }
+
     function paintP() {
       const body = $('#pBody');
       const ph = state.phase;
+
+      /* --- 滿意度調查優先於一切 --- */
+      if (state.test === 'survey' && SURVEY) {
+        if (mySurvey) { drawSurveyDone(); return; }
+        if (body.dataset.test !== 'survey') {
+          body.dataset.test = 'survey'; sIdx = 0;
+        }
+        drawSurvey();
+        return;
+      }
 
       /* --- 前／後測優先於一切 --- */
       if (state.test && TESTN) {
