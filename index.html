@@ -77,6 +77,14 @@ input{font:inherit}
   background:#0b0f16;border:1px solid rgba(201,162,39,.35);padding:10px 13px;border-radius:6px;margin:12px 0}
 .bigpin{font-family:var(--mono);font-size:clamp(40px,8vw,70px);font-weight:600;letter-spacing:.2em;color:var(--brass-lt);line-height:1.1}
 .roster{display:flex;flex-wrap:wrap;gap:7px;margin-top:16px;max-height:26vh;overflow:auto}
+/* ---- 加入畫面：職級選擇 ---- */
+.lvlab{margin:14px 0 7px;font-size:13px;color:var(--dim);letter-spacing:.06em}
+.lvrow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.lvb{padding:10px 2px;border-radius:9px;border:1px solid rgba(201,162,39,.32);background:#0d1219;
+  color:var(--dim);font-family:var(--ui);font-size:13px;line-height:1.2;cursor:pointer;white-space:nowrap}
+.lvb.sel{border-color:var(--patina);background:rgba(31,74,69,.92);color:#cfeee6;font-weight:600}
+.lvb:active{transform:scale(.97)}
+.rtag{font-size:11px;opacity:.75;margin-left:5px;font-family:var(--mono)}
 .rchip{font-size:13.5px;padding:5px 12px;border-radius:16px;background:rgba(79,155,142,.18);
   border:1px solid rgba(79,155,142,.45);color:#bfe6de;animation:pop .35s ease}
 @keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
@@ -255,6 +263,8 @@ input{font:inherit}
         <input id="inName" style="letter-spacing:normal;font-size:18px;font-family:var(--ui)"
                maxlength="12" placeholder="你的暱稱" autocomplete="off">
       </div>
+      <div class="lvlab">你的職級</div>
+      <div class="lvrow" id="inLevel"></div>
       <div class="err" id="joinErr"></div>
       <div class="b-row">
         <button class="btn solid lg" id="bDoJoin">加入</button>
@@ -376,6 +386,10 @@ input{font:inherit}
   const TEST = (DATA.test && DATA.test.items) || [];     /* 前後測題庫 */
   const TESTN = TEST.length;
 
+  /* ---- 職級 ---- */
+  const LEVELS = (DATA.levels && DATA.levels.length) ? DATA.levels
+               : ['Clerk', 'Intern', 'PGY1', 'PGY2', 'R'];
+
   /* ---- 教學滿意度調查 ---- */
   const SURVEY = DATA.survey || null;
   /* 每個量表題帶上章節代號（三甲、四乙…），統計表才對得上紙本 */
@@ -481,7 +495,8 @@ input{font:inherit}
       const n = Object.keys(players).length;
       $('#hCount').textContent = n; $('#hTot').textContent = n;
       $('#roster').innerHTML = rank(players).map(p =>
-        '<span class="rchip">' + esc(p.name) + '</span>').join('');
+        '<span class="rchip">' + esc(p.name) +
+        (p.level ? '<span class="rtag">' + esc(p.level) + '</span>' : '') + '</span>').join('');
       if (state && state.phase === 'reveal') renderLB();
       if (state && state.phase === 'final') renderFinal();
       if (state) paintTest();
@@ -775,7 +790,7 @@ input{font:inherit}
         lines.push('');
 
         /* --- 區塊一：每人成績 --- */
-        const head = ['名次', '暱稱', '最終分數', '◎ 答對', '✕ 答錯', '未作答'];
+        const head = ['名次', '暱稱', '職級', '最終分數', '◎ 答對', '✕ 答錯', '未作答'];
         qids.forEach(qid => { head.push(qid + ' 選項'); head.push(qid + ' 得分'); });
         lines.push(csvRow(['【學員成績】']));
         lines.push(csvRow(head));
@@ -791,7 +806,7 @@ input{font:inherit}
             const pick = Array.isArray(a.choice) ? a.choice.slice().sort((x, y) => x - y).join('+') : a.choice;
             cells.push(pick, (typeof a.delta === 'number' ? a.delta : ''));
           });
-          lines.push(csvRow([i + 1, p.name, p.trust, best, bad, none].concat(cells)));
+          lines.push(csvRow([i + 1, p.name, p.level || '', p.trust, best, bad, none].concat(cells)));
         });
 
         lines.push('');
@@ -824,7 +839,7 @@ input{font:inherit}
 
           lines.push('');
           lines.push(csvRow(['【前後測成績】', '滿分 ' + TESTN + ' 分']));
-          lines.push(csvRow(['暱稱', '前測', '後測', '進步', '標準化增益 <g>', '前測秒數', '後測秒數']));
+          lines.push(csvRow(['暱稱', '職級', '前測', '後測', '進步', '標準化增益 <g>', '前測秒數', '後測秒數']));
           ids.forEach(id => {
             const a0 = pre[id], b0 = post[id];
             const nm = (players[id] && players[id].name) || (a0 && a0.name) || (b0 && b0.name) || id;
@@ -834,7 +849,8 @@ input{font:inherit}
                 ? Math.round((b0.score - a0.score) / (b0.total - a0.score) * 100) / 100
                 : (b0.score === b0.total ? '前測已滿分' : '');
             }
-            lines.push(csvRow([nm,
+            const lv = (players[id] && players[id].level) || (a0 && a0.level) || (b0 && b0.level) || '';
+            lines.push(csvRow([nm, lv,
               a0 ? a0.score : '', b0 ? b0.score : '',
               (a0 && b0) ? (b0.score - a0.score) : '',
               gain, a0 ? a0.sec : '', b0 ? b0.sec : '']));
@@ -861,7 +877,7 @@ input{font:inherit}
           /* --- 區塊五：前後測作答明細 --- */
           lines.push('');
           lines.push(csvRow(['【前後測作答明細】']));
-          const h2 = ['暱稱', '場次'];
+          const h2 = ['暱稱', '職級', '場次'];
           TEST.forEach(it => h2.push('T' + it.n));
           h2.push('得分');
           lines.push(csvRow(h2));
@@ -871,7 +887,8 @@ input{font:inherit}
               const r = m[id]; if (!r) return;
               const nm = (players[id] && players[id].name) || r.name || id;
               const cells = TEST.map(it => (r.answers && r.answers[it.n]) || '');
-              lines.push(csvRow([nm, tag].concat(cells, [r.score])));
+              const lv2 = (players[id] && players[id].level) || r.level || '';
+              lines.push(csvRow([nm, lv2, tag].concat(cells, [r.score])));
             });
           });
         }
@@ -922,14 +939,14 @@ input{font:inherit}
           /* 逐筆明細（含備註與開放問答） */
           lines.push('');
           lines.push(csvRow(['【滿意度逐筆】']));
-          const h3 = ['暱稱', '成效自評'].concat(SV_ITEMS.map(it => it.csv),
+          const h3 = ['暱稱', '職級', '成效自評'].concat(SV_ITEMS.map(it => it.csv),
                         ['平均', '填答秒數', '備註說明'], SURVEY.open.map(o => o.label));
           lines.push(csvRow(h3));
           rows.sort((x, y) => (x.at || 0) - (y.at || 0)).forEach(r => {
             /* 各題備註併成一欄，格式「項目：內容」，用 ｜ 分隔 */
             const note = SV_ITEMS.filter(it => r.notes && r.notes[it.id])
               .map(it => it.csv + '：' + r.notes[it.id]).join('｜');
-            const cells = [r.name || '', r.must || '']
+            const cells = [r.name || '', r.level || '', r.must || '']
               .concat(SV_ITEMS.map(it => (r.scores && r.scores[it.id]) || ''),
                       [r.mean == null ? '' : r.mean, r.sec == null ? '' : r.sec, note],
                       SURVEY.open.map(o => (r.open && r.open[o.id]) || ''));
@@ -993,7 +1010,7 @@ input{font:inherit}
   }
 
   /* ================= 參加者 ================= */
-  async function startPlayer(pin, name) {
+  async function startPlayer(pin, name, level) {
     $('#boot').classList.add('hide');
     $('#player').classList.add('on');
 
@@ -1010,7 +1027,7 @@ input{font:inherit}
 
     const saved = sessionStorage.getItem(KEY);
     if (saved) { const p = await net.rejoin(pin, saved); if (p) { pid = saved; me = p; } }
-    if (!pid) { pid = await net.join(pin, name, CFG.startTrust || 100); sessionStorage.setItem(KEY, pid); }
+    if (!pid) { pid = await net.join(pin, name, CFG.startTrust || 100, level || ''); sessionStorage.setItem(KEY, pid); }
 
     net.watchPlayers(pin, ps => {
       players = ps || {}; me = players[pid] || me;
@@ -1082,7 +1099,8 @@ input{font:inherit}
       TEST.forEach(it => { if (tAns[it.n] === it.ans) score++; });
       await net.submitTest(pin, kind, pid, {
         answers: tAns, score, total: TESTN,
-        sec: Math.round((Date.now() - tT0) / 1000), at: Date.now(), name: (me && me.name) || ''
+        sec: Math.round((Date.now() - tT0) / 1000), at: Date.now(),
+        name: (me && me.name) || '', level: (me && me.level) || ''
       });
       myTest[kind] = true; tT0 = 0;
       drawTestDone(kind);
@@ -1246,7 +1264,8 @@ input{font:inherit}
       await net.submitTest(pin, 'survey', pid, {
         scores: sAns, must: sMust, notes, open: opens,
         mean: Math.round(vals.reduce((a, b2) => a + b2, 0) / vals.length * 100) / 100,
-        sec: Math.round((Date.now() - sT0) / 1000), at: Date.now(), name: (me && me.name) || ''
+        sec: Math.round((Date.now() - sT0) / 1000), at: Date.now(),
+        name: (me && me.name) || '', level: (me && me.level) || ''
       });
       mySurvey = true; sT0 = 0;
       drawSurveyDone();
@@ -1480,16 +1499,39 @@ input{font:inherit}
   $('#bDoJoin').onclick = doJoin;
   $('#inName').addEventListener('keydown', e => { if (e.key === 'Enter') doJoin(); });
 
+  /* 職級按鈕：同一支手機下次加入會記住上次的選擇 */
+  let myLevel = '';
+  try { const v = localStorage.getItem('f7:level'); if (LEVELS.indexOf(v) >= 0) myLevel = v; } catch (e) {}
+  (function buildLevels() {
+    const box = $('#inLevel'); if (!box) return;
+    box.innerHTML = '';
+    LEVELS.forEach(lv => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'lvb' + (myLevel === lv ? ' sel' : '');
+      b.textContent = lv;
+      b.onclick = () => {
+        myLevel = lv;
+        [...box.children].forEach(c => c.classList.remove('sel'));
+        b.classList.add('sel');
+        try { localStorage.setItem('f7:level', lv); } catch (e) {}
+        $('#joinErr').textContent = '';
+      };
+      box.appendChild(b);
+    });
+  })();
+
   async function doJoin() {
     const pin = $('#inPin').value.trim();
     const name = $('#inName').value.trim();
     const err = $('#joinErr');
     if (!/^\d{3,6}$/.test(pin)) { err.textContent = '請輸入正確的房號'; return; }
     if (!name) { err.textContent = '請輸入暱稱'; return; }
+    if (!myLevel) { err.textContent = '請選擇你的職級'; return; }
     err.textContent = '連線中…';
     try {
       if (!(await net.roomExists(pin))) { err.textContent = '找不到這個房號，請確認主持人畫面'; return; }
-      await startPlayer(pin, name);
+      await startPlayer(pin, name, myLevel);
     } catch (e) { err.textContent = '連線失敗：' + e.message; }
   }
 

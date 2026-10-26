@@ -27,9 +27,10 @@
         const h = r.on('value', s => cb(s.val()));
         return () => r.off('value', h);
       },
-      async join(pin, name, startTrust) {
+      async join(pin, name, startTrust, level) {
         const ref = R(pin, 'players').push();
-        await ref.set({ name, trust: startTrust, joinedAt: firebase.database.ServerValue.TIMESTAMP, streak: 0 });
+        await ref.set({ name, level: level || '', trust: startTrust,
+                        joinedAt: firebase.database.ServerValue.TIMESTAMP, streak: 0 });
         return ref.key;
       },
       async rejoin(pin, pid) {
@@ -104,9 +105,9 @@
         const r = read(pin); if (r) setTimeout(() => cb(r.state), 0);
         return () => { const i = subs.state.indexOf(s); if (i >= 0) subs.state.splice(i, 1); };
       },
-      async join(pin, name, startTrust) {
+      async join(pin, name, startTrust, level) {
         const r = ensure(pin); const id = 'p' + Math.random().toString(36).slice(2, 9);
-        r.players[id] = { name, trust: startTrust, joinedAt: Date.now(), streak: 0 };
+        r.players[id] = { name, level: level || '', trust: startTrust, joinedAt: Date.now(), streak: 0 };
         write(pin, r); return id;
       },
       async rejoin(pin, pid) { const r = read(pin); return (r && r.players && r.players[pid]) || null; },

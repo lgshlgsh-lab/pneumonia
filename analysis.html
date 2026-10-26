@@ -201,6 +201,12 @@ footer{margin-top:52px;padding-top:16px;border-top:1px solid var(--rule);color:v
       <b>鑑別度 D</b>＝後測總分前 27% 的答對率 − 後 27% 的答對率。D ≥ 0.40 佳、0.30–0.39 尚可、0.20–0.29 需修改、&lt; 0.20 差。
       人數少於 8 人時不計算。
     </div>
+
+    <div id="lvWrap" hidden>
+      <div class="shead" style="margin-top:26px"><div><h2>各職級比較</h2>
+        <div class="sub" id="lvSub">合併所有梯次，依職級分組。人數少的組別請謹慎解讀。</div></div></div>
+      <div class="scroll"><table id="lvTbl"></table></div>
+    </div>
   </section>
 
   <section id="secSurvey" hidden>
@@ -293,7 +299,7 @@ function parseCohort(text, filename){
   const pin=meta[1]||'', time=meta[3]||'';
   const B=splitBlocks(rows);
   const students=asObjects(B['學員成績']).map(o=>({
-    name:o['暱稱'], score:numOr(o['最終分數'],null),
+    name:o['暱稱'], level:(o['職級']||'').trim(), score:numOr(o['最終分數'],null),
     best:numOr(o['◎ 答對'],0), bad:numOr(o['✕ 答錯'],0)
   })).filter(s=>s.name);
   const game=[];
@@ -318,7 +324,8 @@ function parseCohort(text, filename){
     (o['場次']==='後測'?post:pre).push(rec);
   });
   const prepost=asObjects(B['前後測成績']).map(o=>({
-    name:o['暱稱'], pre:numOr(o['前測'],null), post:numOr(o['後測'],null),
+    name:o['暱稱'], level:(o['職級']||'').trim(),
+    pre:numOr(o['前測'],null), post:numOr(o['後測'],null),
     preSec:numOr(o['前測秒數'],null), postSec:numOr(o['後測秒數'],null)
   })).filter(x=>x.name);
   /* ---- 教學滿意度調查 ---- */
@@ -330,7 +337,8 @@ function parseCohort(text, filename){
   const survey=(svHead.length?asObjects(svDetail):[]).filter(o=>o['平均']!==undefined).map(o=>{
     const sc={}; svItems.forEach(l=>{ const v=numOr(o[l],null); if(v!==null) sc[l]=v; });
     const op={}; openCols.forEach(c=>{ if((o[c]||'').trim()) op[c]=o[c].trim(); });
-    return {name:o['暱稱']||'', must:numOr(o['成效自評'],null), scores:sc,
+    return {name:o['暱稱']||'', level:(o['職級']||'').trim(),
+            must:numOr(o['成效自評'],null), scores:sc,
             mean:numOr(o['平均'],null), note:(o['備註說明']||'').trim(), open:op};
   });
   const mustOpts=asObjects(B['訓練成效自評'])
@@ -376,7 +384,9 @@ function sampleCohorts(){
       pre.push({name:nm,score:A.sc,ans:A.a});
       post.push({name:nm,score:B.sc,ans:B.a});
       prepost.push({name:nm,pre:A.sc,post:B.sc,preSec:Math.round(60+rnd()*90),postSec:Math.round(50+rnd()*80)});
-      students.push({name:nm,score:Math.round(60+rnd()*110),best:Math.round(6+rnd()*7),bad:Math.round(rnd()*5)});
+      const LV5=['Clerk','Intern','PGY1','PGY2','R'];
+      students.push({name:nm,level:LV5[i%5],score:Math.round(60+rnd()*110),
+                     best:Math.round(6+rnd()*7),bad:Math.round(rnd()*5)});
     }
     const game=[
       {qid:'q6',slide:'34',stem:'哪些線索支持 MDR／特定病原風險？（複選）',total:n,opts:[
@@ -646,21 +656,65 @@ function render(){
       const pp=byName[nm]||{};
       const g=(pp.pre!==null&&pp.pre!==undefined&&pp.post!==null&&pp.post!==undefined&&mx>pp.pre)
         ?(pp.post-pp.pre)/(mx-pp.pre):null;
-      roster.push({cohort:c.label,name:nm,game:st.score??null,pre:pp.pre??null,post:pp.post??null,g});
+      roster.push({cohort:c.label,name:nm,level:st.level||pp.level||'',
+                   game:st.score??null,pre:pp.pre??null,post:pp.post??null,g});
     });
   });
   roster.sort((a,b)=>(b.g??-9)-(a.g??-9));
   document.getElementById('rosterSub').textContent=roster.length+' 人，依標準化增益排序';
   document.getElementById('rosterTbl').innerHTML=
-    `<thead><tr><th>梯次</th><th>暱稱</th><th class="n">遊戲分數</th><th class="n">前測</th>
+    `<thead><tr><th>梯次</th><th>暱稱</th><th>職級</th><th class="n">遊戲分數</th><th class="n">前測</th>
       <th class="n">後測</th><th class="n">進步</th><th class="n">&lt;g&gt;</th></tr></thead><tbody>`+
     roster.map(r=>`<tr><td class="sub">${esc(r.cohort)}</td><td>${esc(r.name)}</td>
+      <td class="nw">${esc(r.level||'—')}</td>
       <td class="n">${r.game??'—'}</td><td class="n">${r.pre??'—'}</td><td class="n">${r.post??'—'}</td>
       <td class="n ${r.pre!==null&&r.post!==null&&r.post>r.pre?'up':''}">${
         (r.pre!==null&&r.post!==null)?((r.post>=r.pre?'+':'')+(r.post-r.pre)):'—'}</td>
       <td class="n">${f2(r.g)}</td></tr>`).join('')+'</tbody>';
 
+  /* 各職級比較 */
+  renderLevels(roster, P.key.length||10);
+
   window.__merged=buildCSV(P,stats,glist,roster);
+}
+
+/* ============ 各職級比較 ============ */
+const LEVEL_ORDER=['Clerk','Intern','PGY1','PGY2','R'];
+function levelStats(roster,max){
+  const seen=[...new Set(roster.map(r=>r.level).filter(Boolean))];
+  seen.sort((a,b)=>{
+    const ia=LEVEL_ORDER.indexOf(a), ib=LEVEL_ORDER.indexOf(b);
+    return (ia<0?99:ia)-(ib<0?99:ib) || a.localeCompare(b);
+  });
+  return seen.map(lv=>{
+    const g=roster.filter(r=>r.level===lv);
+    const pre=g.map(r=>r.pre).filter(v=>v!==null&&v!==undefined);
+    const post=g.map(r=>r.post).filter(v=>v!==null&&v!==undefined);
+    const game=g.map(r=>r.game).filter(v=>v!==null&&v!==undefined);
+    const ind=g.map(r=>r.g).filter(v=>v!==null&&v!==undefined);
+    const ap=avg(pre), aq=avg(post);
+    return {lv, n:g.length, game:avg(game), pre:ap, post:aq,
+      classG:(ap!==null&&aq!==null&&max>ap)?(aq-ap)/(max-ap):null, indivG:avg(ind)};
+  });
+}
+function renderLevels(roster,max){
+  const rows=levelStats(roster,max);
+  const wrap=document.getElementById('lvWrap');
+  wrap.hidden = rows.length<2;          /* 只有一種職級就不必比較 */
+  if(wrap.hidden) return;
+  const none=roster.filter(r=>!r.level).length;
+  document.getElementById('lvSub').textContent=
+    '合併所有梯次，依職級分組。人數少的組別請謹慎解讀。' +
+    (none? '（另有 '+none+' 人沒有職級資料，未列入）' : '');
+  document.getElementById('lvTbl').innerHTML=
+    `<thead><tr><th>職級</th><th class="n">人數</th><th class="n">遊戲均分</th>
+      <th class="n">前測</th><th class="n">後測</th><th class="n">進步</th>
+      <th class="n">班級 &lt;g&gt;</th><th class="n">個人 &lt;g&gt;</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td class="nw">${esc(r.lv)}</td><td class="n">${r.n}</td>
+      <td class="n">${f1(r.game)}</td><td class="n">${f1(r.pre)}</td><td class="n">${f1(r.post)}</td>
+      <td class="n ${(r.pre!==null&&r.post!==null&&r.post>r.pre)?'up':''}">${
+        (r.pre!==null&&r.post!==null)?((r.post>=r.pre?'+':'')+f1(r.post-r.pre)):'—'}</td>
+      <td class="n">${f2(r.classG)}</td><td class="n">${f2(r.indivG)}</td></tr>`).join('')+'</tbody>';
 }
 
 /* ============ 合併 CSV ============ */
@@ -690,9 +744,18 @@ function buildCSV(P,stats,glist,roster){
     o.n,g.total?pct(o.n/g.total):'']))));
   L.push('');
   L.push(row(['【學員名單（合併）】']));
-  L.push(row(['梯次','暱稱','遊戲分數','前測','後測','進步','標準化增益<g>']));
-  roster.forEach(r=>L.push(row([r.cohort,r.name,r.game,r.pre,r.post,
+  L.push(row(['梯次','暱稱','職級','遊戲分數','前測','後測','進步','標準化增益<g>']));
+  roster.forEach(r=>L.push(row([r.cohort,r.name,r.level,r.game,r.pre,r.post,
     (r.pre!==null&&r.post!==null)?(r.post-r.pre):'',f2(r.g)])));
+
+  const LV=levelStats(roster,(P.key.length||10));
+  if(LV.length>1){
+    L.push('');
+    L.push(row(['【各職級比較（合併）】']));
+    L.push(row(['職級','人數','遊戲均分','前測均分','後測均分','進步','班級<g>','個人<g>']));
+    LV.forEach(r=>L.push(row([r.lv,r.n,f1(r.game),f1(r.pre),f1(r.post),
+      (r.pre!==null&&r.post!==null)?f1(r.post-r.pre):'',f2(r.classG),f2(r.indivG)])));
+  }
 
   const S=surveyPooled();
   if(S.rows.length){
@@ -710,8 +773,8 @@ function buildCSV(P,stats,glist,roster){
     });
     L.push('');
     L.push(row(['【滿意度逐筆（合併）】']));
-    L.push(row(['梯次','暱稱','成效自評'].concat(S.items,['平均','備註說明'],S.openCols)));
-    S.rows.forEach(r=>L.push(row([r.cohort,r.name,r.must]
+    L.push(row(['梯次','暱稱','職級','成效自評'].concat(S.items,['平均','備註說明'],S.openCols)));
+    S.rows.forEach(r=>L.push(row([r.cohort,r.name,r.level||'',r.must]
       .concat(S.items.map(l=>r.scores[l]||''), [r.mean, r.note],
               S.openCols.map(c2=>(r.open&&r.open[c2])||'')))));
   }
