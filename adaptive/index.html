@@ -1435,7 +1435,7 @@ input{font:inherit}
         const k = i + 1;
         const b2 = document.createElement('button');
         b2.className = 'opt' + (picked === k ? ' sel' : '');
-        b2.innerHTML = '<span class="n">' + k + '</span><span>' + esc(txt).replace(/\*/g, '') + '</span>';
+        b2.innerHTML = '<span class="n">' + k + '</span><span>' + fmt(txt) + '</span>';
         b2.onclick = () => {
           tAns[it.n] = k;
           [...ob.children].forEach(c => c.classList.remove('sel'));
