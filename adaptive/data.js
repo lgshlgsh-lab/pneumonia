@@ -767,7 +767,7 @@ window.FEVER7_DATA = (function () {
 
   return {
     title: '發燒的第七天',
-    subtitle: '適性學習版 · 支線與補強關卡',
+    subtitle: '適性學習版 · 支線劇情與進階思考',
     flow, questions, linked,
     test: base.test,
     levels: base.levels,

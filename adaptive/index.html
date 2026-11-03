@@ -283,7 +283,7 @@ input{font:inherit}
   <div class="boot-in orn">
     <div class="b-sup">Adaptive Edition · Interactive</div>
     <div class="b-main">發燒的第七天</div>
-    <div class="b-sub" id="bootSub">適性學習版 · 支線與補強關卡</div>
+    <div class="b-sub" id="bootSub">適性學習版 · 支線劇情與進階思考</div>
 
     <div id="bootRole">
       <div class="b-row">
@@ -330,7 +330,7 @@ input{font:inherit}
     <div class="chip">參加者 <b id="hCount">0</b></div>
     <div class="chip" id="hPhase">大廳</div>
     <div class="chip" id="hFlags" title="全班劇情狀態">繞路 0｜過度 0｜ICU —</div>
-    <label class="chip" style="display:flex;align-items:center;gap:6px" title="答錯率超過多少就進補強關卡">補強
+    <label class="chip" style="display:flex;align-items:center;gap:6px" title="答錯率超過多少就加入進階思考題">進階題
       <select id="cThr" style="background:#0b0f16;color:var(--brass-lt);border:1px solid rgba(201,162,39,.35);border-radius:4px">
         <option value="gt">答錯 &gt; 50%</option><option value="ge">答錯 ≥ 50%</option><option value="off">關閉</option>
       </select></label>
@@ -463,7 +463,7 @@ input{font:inherit}
     return {
       linkedOf: l.parent, role: l.role, multi: false,
       stem: l.stem,
-      note: '補強關卡 ' + l.role + ' / 3　·　' + ROLE[l.role],
+      note: '',
       options: l.opts.map((t, i) => ({
         k: i + 1, text: t, verdict: (i + 1 === l.ans) ? 'best' : 'bad', base: (i + 1 === l.ans) ? 5 : 0,
         why: (i + 1 === l.ans ? '正解。' : '正解是 ' + LET[l.ans - 1] + '。') + (l.note ? ' ' + l.note : '')
@@ -479,10 +479,10 @@ input{font:inherit}
     const kind = key.slice(0, 2), id = key.slice(2);
     if (kind === 'L:') {
       const l = LQ[id] || { role: 1 };
-      return { k: key, type: 'ask', q: id, linked: true, label: '補強關卡 ' + l.role + ' / 3（' + ROLE[l.role] + '）' };
+      return { k: key, type: 'ask', q: id, linked: true, label: '再多想一點 ' + l.role + ' / 3' };
     }
-    if (kind === 'R:') return { k: key, type: 'card', special: 'remed', q: id, label: '補強關卡' };
-    if (kind === 'T:') return { k: key, type: 'card', special: 'teacher', q: id, label: '教師講解' };
+    if (kind === 'R:') return { k: key, type: 'card', special: 'remed', q: id, label: '進階思考' };
+    if (kind === 'T:') return { k: key, type: 'card', special: 'teacher', q: id, label: '講師補充' };
     return FLOW[0];
   }
 
@@ -709,10 +709,10 @@ input{font:inherit}
       function paintCard() {
         if (it.special === 'remed') {
           const pq = Q[it.q];
-          showCard('⚙ 補強關卡', fmt('多數人在「' + (pq ? pq.stem : '') + '」答錯了。\n\n接下來三題，確認這個觀念：\n① 概念再確認　② 情境遷移　③ 誘答拆解').replace(/\n/g, '<br>'), 'warm', 'REMEDIATION');
+          showCard('💡 進階思考', fmt('關於剛才這個決定，\n我們再多想一點。').replace(/\n/g, '<br>'), 'warm', 'THINK DEEPER');
         } else if (it.special === 'teacher') {
           const pq = Q[it.q];
-          showCard('🧑‍🏫 教師講解', fmt('補強關卡之後，答錯率仍然過半。\n\n請講者用 2 分鐘說明：\n' + (pq ? pq.key : '')).replace(/\n/g, '<br>'), 'warm', 'DEBRIEF');
+          showCard('🧑‍🏫 講師補充', fmt('這個觀念值得多花兩分鐘：\n\n' + (pq ? pq.key : '')).replace(/\n/g, '<br>'), 'warm', 'DEBRIEF');
         } else if (it.special === 'pathmap') {
           showCard(it.title, pathHtml(), '', 'YOUR PATH');
         } else if (it.type === 'card') {
@@ -737,7 +737,7 @@ input{font:inherit}
       $('#hBanner').classList.toggle('icu', !!icuScene);
 
       /* 標籤與狀態 */
-      const lbl = (it.n ? it.n + '　' : '') + it.label + (state.remed ? '　〔補強關卡〕' : '');
+      const lbl = (it.n ? it.n + '　' : '') + it.label + (state.remed && !it.special && !it.linked ? '　〔進階思考〕' : '');
       $('#cLabel').textContent = lbl;
       $('#cLabel').dataset.n = it.n || (it.bgm === 'B' ? 84 : (IDX[it.k] != null && IDX[it.k] > IDX['s83'] && !it.bgm ? 60 : 1));
       $('#hPhase').textContent = ({ lobby: '大廳', show: '播放中', ask: '作答中', locked: '已截止',
@@ -811,7 +811,7 @@ input{font:inherit}
         return '<div class="pathrow' + (turn && o.verdict === 'bad' ? ' turn' : '') + '">' +
           '<div class="pq">' + (QNO[x.q] || x.q) + '</div>' +
           '<div title="' + esc(q.stem) + '">' + fmt(q.stem) + (o && !q.multi ? '　<span style="color:var(--gas)">→ ' + lab(q, o.k) + '</span>' : '') + '</div>' +
-          '<div class="pw">答錯 ' + Math.round((x.wr || 0) * 100) + '%' + (x.remed ? '｜補強' : '') +
+          '<div class="pw">答錯 ' + Math.round((x.wr || 0) * 100) + '%' + (x.remed ? '｜進階思考' : '') +
             (typeof x.lwr === 'number' ? ' → ' + Math.round(x.lwr * 100) + '%' : '') + '</div></div>';
       }).join('') + '</div><div style="margin-top:16px;font-size:clamp(16px,1.6vw,22px)">結局：<b style="color:var(--brass-lt)">' + end +
         '</b>　·　繞路 ' + f.detour + '　過度治療 ' + f.overtx + '</div>';
@@ -877,7 +877,7 @@ input{font:inherit}
       } else if (q.key) {
         const remedNext = state.pend && !q.linkedOf;
         kb = '<div class="keybox">' + (q.linkedOf ? q.key : fmt(q.key)) + '</div>' +
-          (remedNext ? '<div class="keybox warn">答錯率過半：按「下一張」進入補強關卡（3 題）</div>' : '');
+          (remedNext ? '<div class="keybox warn">按「下一張」繼續：再多想一點（3 題）</div>' : '');
       }
       $('#keyBox').innerHTML = kb;
     }
@@ -1682,10 +1682,10 @@ input{font:inherit}
 
       const remed = state.remed && String(state.at || '').indexOf('R:') === 0;
       body.innerHTML = '<div class="pidle"><div><div class="spin"></div></div>' +
-        '<div class="big">' + (ph === 'lobby' ? '已加入，等待開始' : remed ? '⚙ 補強關卡' : '請看螢幕') + '</div>' +
+        '<div class="big">' + (ph === 'lobby' ? '已加入，等待開始' : remed ? '💡 再多想一點' : '請看螢幕') + '</div>' +
         '<div class="sm">' + (ph === 'lobby'
           ? '房號 ' + pin + '<br>主持人開始後這裡會出現題目'
-          : remed ? '多數人答錯了。接下來三題，每題答對 +5，答錯不扣分。'
+          : remed ? '接下來三題，答對 +5，答錯不扣分。'
           : '輪到作答時，選項會出現在這裡') + '</div></div>';
     }
 
@@ -1695,7 +1695,7 @@ input{font:inherit}
       const body = $('#pBody');
       body.innerHTML =
         '<div class="ptimer" id="pt"><i style="width:100%"></i></div>' +
-        (q.linkedOf ? '<div class="remedtag">⚙ 補強關卡　答對 +5，答錯不扣分</div>' : '') +
+        (q.linkedOf ? '<div class="remedtag">💡 再多想一點 ' + q.role + ' / 3　·　答對 +5，答錯不扣分</div>' : '') +
         '<div class="qstem">' + fmt(q.stem) + '</div>' +
         '<div class="qnote">' + fmt(q.note || '') + '</div>' +
         (q.multi ? '<div class="qmulti">可複選，選好後按下方送出</div>' : '') +
@@ -1783,7 +1783,7 @@ input{font:inherit}
           '<div class="rdelta ' + (d > 0 ? 'up' : d < 0 ? 'down' : '') + '">' + (d > 0 ? '+' + d : d) + '</div>' +
           '<div style="color:var(--dim);font-size:13px">Trust ' + (me ? me.trust : '—') + '</div>' +
           (myRank ? '<div class="rrank">目前排名 <b>' + myRank + '</b> / ' + rs.length + '</div>' : '') +
-          (remedNext ? '<div class="remedtag" style="margin-top:10px">全班答錯過半，接下來進入補強關卡</div>' : '') +
+          (remedNext ? '<div class="remedtag" style="margin-top:10px">接下來：再多想一點</div>' : '') +
         '</div>' +
         (whyHtml ? '<div class="rwhy">' + whyHtml + '</div>' : '') +
         '<div class="minilb">' + rs.slice(0, 5).map((p, i) =>
