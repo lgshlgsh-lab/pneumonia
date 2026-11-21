@@ -248,8 +248,8 @@ input{font:inherit}
 .pathrow .pw{font-family:var(--mono);font-size:.9em;color:var(--dim)}
 #qPanel{position:absolute;top:0;right:0;bottom:0;width:min(64%,1040px);z-index:2;display:flex;flex-direction:column;
   justify-content:center;gap:12px;padding:3% 3.2%;
-  background:#05070c;border-left:1px solid rgba(201,162,39,.3)}
-#qPanel.full{width:100%;background:#05070c;padding:3% 10%}
+  background:linear-gradient(90deg,rgba(5,7,12,.25),rgba(5,7,12,.62) 18%,rgba(5,7,12,.72));border-left:0}
+#qPanel.full{width:100%;background:rgba(5,7,12,.66);padding:3% 10%}
 #qPanel .qtag{font-family:var(--lat);font-size:14px;letter-spacing:.2em;color:var(--brass)}
 #qPanel .qs{font-family:var(--disp);font-size:clamp(24px,2.6vw,38px);line-height:1.4;color:var(--text)}
 #qPanel .qn{font-size:clamp(15px,1.4vw,20px);color:var(--dim);margin-bottom:6px}
@@ -258,9 +258,10 @@ input{font:inherit}
   font-size:clamp(17px,1.75vw,26px);line-height:1.45}
 #qPanel .qo b{font-family:var(--mono);color:var(--brass-lt);text-align:center}
 #qPanel.multi .qo{padding:7px 14px;font-size:clamp(15px,1.45vw,22px)}
-#revealOv{width:min(64%,1040px);background:rgba(5,7,12,.97)}
+#revealOv{width:min(64%,1040px);background:linear-gradient(90deg,rgba(5,7,12,.55),rgba(5,7,12,.86) 14%)}
 #revealOv.wide{width:min(100%,1300px);left:50%;right:auto;transform:translateX(-50%);border-left:0}
-#hImg.dim{opacity:.13}
+#hImg.dim{opacity:.55}
+.dwhy{margin:-4px 34px 10px 44px;font-size:clamp(13px,1.15vw,17px);line-height:1.5;color:#c9c3b4}
 .keybox{margin-top:16px;padding:14px 16px;border-radius:8px;background:rgba(108,195,154,.1);
   border:1px solid rgba(108,195,154,.45);font-size:clamp(15px,1.4vw,19px);line-height:1.7}
 .keybox.warn{background:rgba(224,180,95,.1);border-color:rgba(224,180,95,.5)}
@@ -758,8 +759,9 @@ input{font:inherit}
       if (state.test) $('#joinOv').classList.remove('hide');
       $('#cRank').classList.toggle('hide', ph !== 'reveal');
       $('#askOv').classList.toggle('hide', !(ph === 'ask' || ph === 'locked'));
-      $('#revealOv').classList.toggle('hide', !(ph === 'reveal' || ph === 'dist'));
-      $('#hImg').classList.toggle('dim', ph === 'reveal' && it.type === 'verdict');
+      const vShow = ph === 'show' && it.type === 'verdict';
+      $('#revealOv').classList.toggle('hide', !(ph === 'reveal' || ph === 'dist' || vShow));
+      $('#hImg').classList.toggle('dim', (ph === 'reveal' || vShow) && it.type === 'verdict');
       $('#revealOv').classList.toggle('wide', !it.n);
       $('#finalOv').classList.toggle('hide', ph !== 'final');
 
@@ -799,9 +801,9 @@ input{font:inherit}
       paintTest();
       if (ph === 'ask') startTick(); else stopTick();
       if (ph === 'ask' || ph === 'locked') watchAns(state.qid);
-      if (ph === 'reveal' || ph === 'dist') {
+      if (ph === 'reveal' || ph === 'dist' || vShow) {
         renderDist(); renderLB();
-        $('#lbPane').classList.toggle('hide', ph === 'dist' || !rankOpen);
+        $('#lbPane').classList.toggle('hide', ph !== 'reveal' || !rankOpen);
         $('#cRank').textContent = rankOpen ? '隱藏排行' : '顯示排行';
       }
       if (ph === 'final') renderFinal();
@@ -853,17 +855,19 @@ input{font:inherit}
     async function loadAnswers(qid) { answers = (await net.getAnswers(pin, qid)) || {}; return answers; }
 
     function renderDist() {
-      const q = getQ(state.qid); if (!q) return;
+      const cit = cur();
+      const noAns = !state.qid && cit && cit.type === 'verdict';
+      const q = getQ(state.qid || (noAns ? cit.q : null)); if (!q) return;
       const dist = state.phase === 'dist';
       if (state.qid && (!answers || answers.__q !== state.qid)) {
         net.getAnswers(pin, state.qid).then(a => { answers = Object.assign({ __q: state.qid }, a || {}); renderDist(); });
         return;
       }
-      $('#distTitle').innerHTML = (dist ? '全班作答分布　<span style="color:var(--gas)">多數人的醫囑已經開出去了</span>' : '全班作答分布') +
+      $('#distTitle').innerHTML = (dist ? '全班作答分布　<span style="color:var(--gas)">多數人的醫囑已經開出去了</span>' : noAns ? '結算' : '全班作答分布') +
         '<br><span style="font-size:15px;color:var(--text)">' + fmt(q.stem) + '</span>';
       const counts = {}; q.options.forEach(o => { counts[o.k] = 0; });
       let tot = 0;
-      Object.keys(answers).forEach(id => {
+      (noAns ? [] : Object.keys(answers)).forEach(id => {
         if (id === '__q') return;
         const a = answers[id];
         const picks = q.multi ? (a.choice || []) : [a.choice];
@@ -876,9 +880,10 @@ input{font:inherit}
           '<div class="dmark ' + (dist ? 'v-none' : 'v-' + o.verdict) + '">' + (dist ? lab(q, o.k) : VMARK[o.verdict]) + '</div>' +
           '<div class="dbar"><i style="width:' + (counts[o.k] / max * 100) + '%"></i>' +
             '<span>' + lab(q, o.k) + '. ' + fmt(o.text) + '</span></div>' +
-          '<div class="dn">' + counts[o.k] + '</div></div>').join('') +
-        '<div style="margin-top:12px;font-size:12.5px;color:var(--dim)">作答人數 ' + tot +
-        '　·　答錯 ' + Math.round((state.wr || 0) * 100) + '%' + (q.summary && !dist ? '　·　' + fmt(q.summary) : '') + '</div>';
+          '<div class="dn">' + (noAns ? '' : counts[o.k]) + '</div></div>' +
+          (!dist && o.why ? '<div class="dwhy">' + fmt(o.why) + '</div>' : '')).join('') +
+        '<div style="margin-top:12px;font-size:12.5px;color:var(--dim)">' + (noAns ? '這題沒有作答紀錄' : '作答人數 ' + tot +
+        '　·　答錯 ' + Math.round((state.wr || 0) * 100) + '%') + (q.summary && !dist ? '　·　' + fmt(q.summary) : '') + '</div>';
       let kb = '';
       if (dist) {
         kb = '<div class="keybox warn">先看看這個決定帶來什麼，再公布答案。按「下一張」繼續。</div>';
