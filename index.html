@@ -502,7 +502,9 @@ input{font:inherit}
   /* 原版投影片若在 adaptive/img/ 放了新版（data.js 的 imgOverride 列出編號），優先用新版；讀不到就退回原版 */
   const OVR = new Set(DATA.imgOverride || []);
   const origOf = it => '../img/' + pad2(it.n) + '.webp';
-  const imgOf = it => it.n ? (OVR.has(it.n) ? 'img/' + pad2(it.n) + '.webp' : origOf(it)) : (it.k && it.k.indexOf(':') < 0 ? 'img/' + it.k + '.webp' : '');
+  /* 主線題目卡與結算卡：改用去掉舊字的版本 img/a-q1.webp、img/v-q1.webp…；讀不到就退回原版 */
+  const KOVR = new Set(DATA.imgByKey || []);
+  const imgOf = it => it.n ? (KOVR.has(it.k) ? 'img/' + it.k + '.webp' : OVR.has(it.n) ? 'img/' + pad2(it.n) + '.webp' : origOf(it)) : (it.k && it.k.indexOf(':') < 0 ? 'img/' + it.k + '.webp' : '');
   const preloaded = new Set();
   function preload(key) {
     const i0 = IDX[key]; if (i0 == null) return;
