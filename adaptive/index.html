@@ -61,7 +61,7 @@ input{font:inherit}
 .chip b{color:var(--text)}
 .grow{flex:1}
 .stage-main{position:relative;background:#05070c;display:grid;place-items:center;overflow:hidden}
-.stage-main img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.stage-main img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
 .hctl{display:flex;align-items:center;gap:9px;padding:10px 16px;background:rgba(10,14,20,.92);
   border-top:1px solid rgba(201,162,39,.28);flex-wrap:wrap}
 .slidelabel{font-size:13px;color:var(--dim);max-width:34ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -499,7 +499,12 @@ input{font:inherit}
   const KIND_NAME = { pre: '前測', post: '後測', survey: (SURVEY && SURVEY.title) || '滿意度調查' };
 
   /* 原版圖片在上一層 img/，新投影片放在本資料夾 img/<k>.webp */
-  const imgOf = it => it.n ? '../img/' + pad2(it.n) + '.webp' : (it.k && it.k.indexOf(':') < 0 ? 'img/' + it.k + '.webp' : '');
+  /* 原版投影片若在 adaptive/img/ 放了新版（data.js 的 imgOverride 列出編號），優先用新版；讀不到就退回原版 */
+  const OVR = new Set(DATA.imgOverride || []);
+  const origOf = it => '../img/' + pad2(it.n) + '.webp';
+  /* 主線題目卡與結算卡：改用去掉舊字的版本 img/a-q1.webp、img/v-q1.webp…；讀不到就退回原版 */
+  const KOVR = new Set(DATA.imgByKey || []);
+  const imgOf = it => it.n ? (KOVR.has(it.k) ? 'img/' + it.k + '.webp' : OVR.has(it.n) ? 'img/' + pad2(it.n) + '.webp' : origOf(it)) : (it.k && it.k.indexOf(':') < 0 ? 'img/' + it.k + '.webp' : '');
   const preloaded = new Set();
   function preload(key) {
     const i0 = IDX[key]; if (i0 == null) return;
@@ -702,7 +707,10 @@ input{font:inherit}
         if (src) {
           img.style.visibility = 'hidden';
           img.onload = () => { img.style.visibility = 'visible'; if (!it.n && it.type === 'card') $('#hCard').classList.add('hide'); };
-          img.onerror = () => { img.style.visibility = 'hidden'; img.removeAttribute('src'); paintCard(); };
+          img.onerror = () => {
+            if (it.n && img.getAttribute('src') !== origOf(it)) { img.src = origOf(it); return; }
+            img.style.visibility = 'hidden'; img.removeAttribute('src'); paintCard();
+          };
           img.src = src;
         } else { img.removeAttribute('src'); img.style.visibility = 'hidden'; }
       }
