@@ -835,7 +835,7 @@ window.FEVER7_DATA = (function () {
     flow, questions, linked,
     test,
     /* 改成夜間的原版投影片：新圖放 adaptive/img/31.webp 等，沒放就自動用原版 */
-    imgOverride: [31, 32, 33, 39, 41, 42, 43],
+    imgOverride: [31, 32, 33, 39, 41, 42, 43, 63],   /* 63：「照片」改「樣子」 */
     /* 主線題目卡、結算卡改用去掉舊字的圖（舊選項不會再透出來） */
     imgByKey: ['a-q1', 'v-q1', 'a-q2', 'v-q2', 'a-q3', 'v-q3', 'a-q4', 'v-q4', 'a-q5', 'v-q5', 'a-q6', 'v-q6', 'a-q7', 'v-q7', 'a-q8', 'v-q8', 'a-q9', 'v-q9', 'a-q10', 'v-q10', 'a-q11', 'v-q11', 'a-q12', 'v-q12', 'a-q13', 'v-q13', 'a-q14', 'v-q14', 'a-q15', 'v-q15'],
     levels: base.levels,
